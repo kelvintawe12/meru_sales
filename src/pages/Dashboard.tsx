@@ -7,7 +7,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell,
   BarChart, Bar, ResponsiveContainer, Legend, LineChart, Line
 } from 'recharts';
-import { FaChartBar, FaTruck, FaWeightHanging, FaPercentage, FaPlus } from 'react-icons/fa';
+import { FaChartBar, FaTruck, FaWeightHanging, FaPercentage, FaPlus, FaSpinner } from 'react-icons/fa';
 
 // Interfaces
 interface RawDispatchRow {
@@ -44,10 +44,12 @@ interface DispatchOrder {
   metricTons: number;
 }
 
+import { IconType } from 'react-icons';
+
 interface Stat {
   label: string;
   value: string;
-  icon: number;
+  icon: IconType;
   bg: string;
   sub?: string;
   subClassName?: string;
@@ -93,14 +95,69 @@ const COLORS = ['#2563eb', '#22c55e', '#f59e42', '#a855f7', '#eab308', '#ef4444'
 
 // Generate dynamic data with variation
 const generateDynamicData = <T extends object>(data: T[], variation: number = 0.1): T[] => {
-  return data.map((item) => ({
-    ...item,
-    value: 'value' in item ? Math.max(0, (item as any).value * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    orders: 'orders' in item ? Math.max(0, Math.round((item as any).orders * (1 + (Math.random() * variation - variation / 2)))) : undefined,
-    metricTons: 'metricTons' in item ? Math.max(0, (item as any).metricTons * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    pending: 'pending' in item ? Math.max(0, Math.round((item as any).pending * (1 + (Math.random() * variation - variation / 2)))) : undefined,
-    delivered: 'delivered' in item ? Math.max(0, Math.round((item as any).delivered * (1 + (Math.random() * variation - variation / 2)))) : undefined,
-  }));
+  return data.map((item) => {
+    const newItem = { ...item } as any;
+    if ('value' in item && typeof (item as any).value === 'number') {
+      newItem.value = Math.max(0, (item as any).value * (1 + (Math.random() * variation - variation / 2)));
+    }
+    if ('orders' in item && typeof (item as any).orders === 'number') {
+      newItem.orders = Math.max(0, Math.round((item as any).orders * (1 + (Math.random() * variation - variation / 2))));
+    }
+    if ('metricTons' in item && typeof (item as any).metricTons === 'number') {
+      newItem.metricTons = Math.max(0, (item as any).metricTons * (1 + (Math.random() * variation - variation / 2)));
+    }
+    if ('pending' in item && typeof (item as any).pending === 'number') {
+      newItem.pending = Math.max(0, Math.round((item as any).pending * (1 + (Math.random() * variation - variation / 2))));
+    }
+    if ('delivered' in item && typeof (item as any).delivered === 'number') {
+      newItem.delivered = Math.max(0, Math.round((item as any).delivered * (1 + (Math.random() * variation - variation / 2))));
+    }
+    return newItem;
+  });
+};
+
+const loadFileData = async (filePath: string): Promise<string> => {
+  try {
+    const response = await fetch(filePath);
+    if (!response.ok) {
+      throw new Error(`Failed to load file: ${filePath}`);
+    }
+    const text = await response.text();
+    return text;
+  } catch (error) {
+    console.error(error);
+    return '';
+  }
+};
+
+const isRawDispatchRow = (obj: any): obj is RawDispatchRow => {
+  return obj && typeof obj === 'object' &&
+    'DATE' in obj && (typeof obj.DATE === 'string' || obj.DATE === null) &&
+    'MT' in obj && (typeof obj.MT === 'string' || obj.MT === null) &&
+    'CUSTOMER&DEPOTNAME' in obj && (typeof obj['CUSTOMER&DEPOTNAME'] === 'string' || obj['CUSTOMER&DEPOTNAME'] === null) &&
+    'TRUCKstatus' in obj && (typeof obj.TRUCKstatus === 'string' || obj.TRUCKstatus === null) &&
+    'SONO' in obj && (typeof obj.SONO === 'string' || obj.SONO === null) &&
+    'INVOICENO' in obj && (typeof obj.INVOICENO === 'string' || obj.INVOICENO === null) &&
+    '20L' in obj && (typeof obj['20L'] === 'string' || obj['20L'] === null) &&
+    '10L' in obj && (typeof obj['10L'] === 'string' || obj['10L'] === null) &&
+    '5L' in obj && (typeof obj['5L'] === 'string' || obj['5L'] === null) &&
+    '3L' in obj && (typeof obj['3L'] === 'string' || obj['3L'] === null) &&
+    '1L' in obj && (typeof obj['1L'] === 'string' || obj['1L'] === null) &&
+    '250ML' in obj && (typeof obj['250ML'] === 'string' || obj['250ML'] === null) &&
+    '500ML' in obj && (typeof obj['500ML'] === 'string' || obj['500ML'] === null) &&
+    typeof obj.DATE !== 'undefined' &&
+    typeof obj.MT !== 'undefined' &&
+    typeof obj['CUSTOMER&DEPOTNAME'] !== 'undefined' &&
+    typeof obj.TRUCKstatus !== 'undefined' &&
+    typeof obj.SONO !== 'undefined' &&
+    typeof obj.INVOICENO !== 'undefined' &&
+    typeof obj['20L'] !== 'undefined' &&
+    typeof obj['10L'] !== 'undefined' &&
+    typeof obj['5L'] !== 'undefined' &&
+    typeof obj['3L'] !== 'undefined' &&
+    typeof obj['1L'] !== 'undefined' &&
+    typeof obj['250ML'] !== 'undefined' &&
+    typeof obj['500ML'] !== 'undefined';
 };
 
 const Dashboard: React.FC = () => {
@@ -122,32 +179,42 @@ const Dashboard: React.FC = () => {
 
   // Load and process Excel data
   useEffect(() => {
-    const csvData = loadFileData('AIL_DISPATCH 26-May-2025.xlsx');
-    Papa.parse<RawDispatchRow>(csvData, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header) => header.trim().replace(/\s+/g, '').replace(/^"|"$/g, ''),
-      transform: (value) => (value.trim() === '' ? null : value.trim()),
-      complete: (results) => {
-        const parsedOrders: DispatchOrder[] = results.data
-          .filter((row) => row.DATE && row.MT && !isNaN(parseFloat(row.MT)))
-          .map((row) => ({
-            id: row.INVOICENO || Date.now().toString(),
-            customerName: row['CUSTOMER&DEPOTNAME'] || 'Unknown',
-            date: parseExcelDate(parseFloat(row.DATE!)),
-            soNumber: row.SONO || 'N/A',
-            status: row.TRUCKstatus || 'Pending',
-            quantities: {
-              '20L': parseFloat(row['20L'] || '0'),
-              '10L': parseFloat(row['10L'] || '0'),
-              '5L': parseFloat(row['5L'] || '0'),
-              '3L': parseFloat(row['3L'] || '0'),
-              '1L': parseFloat(row['1L'] || '0'),
-              '250ML': parseFloat(row['250ML'] || '0'),
-              '500ML': parseFloat(row['500ML'] || '0'),
-            },
-            metricTons: parseFloat(row.MT!),
-          }));
+    const fetchAndParse = async () => {
+      const csvData = await loadFileData('AIL_DISPATCH 26-May-2025.xlsx');
+      Papa.parse<RawDispatchRow>(csvData, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim().replace(/\s+/g, '').replace(/^"|"$/g, ''),
+        transform: (value) => (value.trim() === '' ? null : value.trim()),
+        complete: (results) => {
+          if (!Array.isArray(results.data)) {
+            setError('Invalid data format');
+            setLoading(false);
+            return;
+          }
+          const rawData = results.data as unknown[];
+          const filteredData = rawData.filter(isRawDispatchRow) as RawDispatchRow[];
+          const parsedOrders: DispatchOrder[] = filteredData
+            .filter((row) => row.DATE && row.MT && !isNaN(parseFloat(row.MT)))
+            .map((row: RawDispatchRow) => {
+              return {
+                id: row.INVOICENO || Date.now().toString(),
+                customerName: row['CUSTOMER&DEPOTNAME'] || 'Unknown',
+                date: parseExcelDate(parseFloat(row.DATE!)),
+                soNumber: row.SONO || 'N/A',
+                status: row.TRUCKstatus || 'Pending',
+                quantities: {
+                  '20L': parseFloat(row['20L'] || '0'),
+                  '10L': parseFloat(row['10L'] || '0'),
+                  '5L': parseFloat(row['5L'] || '0'),
+                  '3L': parseFloat(row['3L'] || '0'),
+                  '1L': parseFloat(row['1L'] || '0'),
+                  '250ML': parseFloat(row['250ML'] || '0'),
+                  '500ML': parseFloat(row['500ML'] || '0'),
+                },
+                metricTons: parseFloat(row.MT!),
+              };
+            });
 
         // Calculate stats
         const pendingOrders = parsedOrders.filter((o) => o.status === 'Delivered').length;
@@ -163,7 +230,7 @@ const Dashboard: React.FC = () => {
           {
             label: 'Pending Orders',
             value: `${pendingOrders}`,
-            icon: parseInt(FaTruck),
+            icon: FaTruck,
             bg: 'bg-blue-100',
             sub: `${parsedOrders.length - pendingOrders} delivered`,
             subClassName: 'text-green-600',
@@ -171,7 +238,7 @@ const Dashboard: React.FC = () => {
           {
             label: 'Total MT',
             value: `${totalMT.toFixed(1)} MT`,
-            icon: parseInt(FaWeightHanging),
+            icon: FaWeightHanging,
             bg: 'bg-green-100',
             sub: `${(totalMT / parsedOrders.length).toFixed(1)} MT/order`,
             subClassName: 'text-gray-600',
@@ -179,7 +246,7 @@ const Dashboard: React.FC = () => {
           {
             label: 'Top Product',
             value: topProduct,
-            icon: parseInt(FaChartBar),
+            icon: FaChartBar,
             bg: 'bg-purple-100',
             sub: `${productTotals[topProduct].toFixed(1)} units`,
             subClassName: 'text-gray-600',
@@ -187,7 +254,7 @@ const Dashboard: React.FC = () => {
           {
             label: 'Pending Ratio',
             value: `${pendingRatio}%`,
-            icon: parseInt(FaPercentage),
+            icon: FaPercentage,
             bg: 'bg-amber-100',
             sub: 'Of total orders',
             subClassName: 'text-gray-600',
@@ -244,6 +311,8 @@ const Dashboard: React.FC = () => {
         setLoading(false);
       },
     });
+    };
+    fetchAndParse();
   }, []);
 
   // Periodic data update
@@ -327,11 +396,8 @@ const Dashboard: React.FC = () => {
         ) : (
           stats.map((stat) => (
             <Card key={stat.label} className="flex items-center">
-              <div className={`p-3 rounded-full ${stat.bg} mr-4}`}>
-                {stat.icon === parseInt(FaTruck) && <FaTruck className="text-blue-600" size={24} />}
-                {stat.icon === parseInt(FaWeightHanging) && <FaWeightHanging className="text-green-600" size={24} />}
-                {stat.icon === parseInt(FaChartBar) && <FaChartBar className="text-purple-600" size={24} />}
-                {stat.icon === parseInt(FaPercentage) && <FaPercentage className="text-amber-600" size={24} />}
+              <div className={`p-3 rounded-full ${stat.bg} mr-4`}>
+                {stat.icon && React.createElement(stat.icon, { className: `text-current`, size: 24 })}
               </div>
               <div>
                 <p className="text-sm text-gray-600">{stat.label}</p>
@@ -473,7 +539,7 @@ const Dashboard: React.FC = () => {
                   cy="50%"
                   outerRadius={90}
                   innerRadius={50}
-                  label={({ name, value }) => `${name}: ${value.toFixed(1)}`}
+                  label={({ name, value }: { name: string; value: number }) => `${name}: ${value.toFixed(1)}`}
                 >
                   {productDist.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
