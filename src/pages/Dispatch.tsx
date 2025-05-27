@@ -601,45 +601,50 @@ const Dispatch: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Transporter</label>
-                <select
+                <input
+                  list="transporterOptionsList"
                   name="transporter"
                   value={formData.transporter || ''}
                   onChange={handleInputChange}
                   className="mt-1 border border-gray-300 p-3 rounded w-full focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="">Select Transporter</option>
-                  {transporterOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
+                  placeholder="Enter or select transporter"
+                />
+                <datalist id="transporterOptionsList">
+                  <option value="Meru" />
+                  <option value="by self" />
+                </datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Dispatch To</label>
-                <select
+                <input
+                  list="dispatchToOptionsList"
                   name="dispatchTo"
                   value={formData.dispatchTo || ''}
                   onChange={handleInputChange}
                   className="mt-1 border border-gray-300 p-3 rounded w-full focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="">Select Depot</option>
+                  placeholder="Enter or select dispatch to"
+                />
+                <datalist id="dispatchToOptionsList">
                   {dispatchToOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option} />
                   ))}
-                </select>
+                </datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Customer Depot Name</label>
-                <select
+                <input
+                  list="customerDepotOptionsList"
                   name="customerDepotName"
                   value={formData.customerDepotName || ''}
                   onChange={handleInputChange}
                   className="mt-1 border border-gray-300 p-3 rounded w-full focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="">Select Customer</option>
+                  placeholder="Enter or select customer"
+                />
+                <datalist id="customerDepotOptionsList">
                   {customerDepotOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option} />
                   ))}
-                </select>
+                </datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Truck Status</label>
@@ -1197,22 +1202,22 @@ const Dispatch: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">Daily Dispatch Reports</h1>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-4 sm:mb-6 text-center">Daily Dispatch Reports</h1>
 
         {/* Responsive Grid Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {/* Controls Section */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-100">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Controls</h2>
-            <div className="space-y-4">
+          <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl shadow-lg border border-gray-100">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Controls</h2>
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Report Type</label>
+                <label className="block text-xs sm:text-sm md:text-sm font-medium text-gray-700">Report Type</label>
                 <select
                   value={selectedReport}
                   onChange={(e) => setSelectedReport(e.target.value)}
-                  className="mt-1 border border-gray-300 p-3 rounded w-full focus:ring-2 focus:ring-blue-500 text-sm transition-all duration-200"
+                  className="mt-1 border border-gray-300 p-2 sm:p-3 rounded w-full focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-sm transition-all duration-200"
                 >
                   {reportTypes.map((type) => (
                     <option key={type} value={type}>{type} Report</option>
@@ -1220,32 +1225,32 @@ const Dispatch: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Search Reports</label>
+                <label className="block text-xs sm:text-sm md:text-sm font-medium text-gray-700">Search Reports</label>
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search by any field..."
-                  className="mt-1 border border-gray-300 p-3 rounded w-full focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="mt-1 border border-gray-300 p-2 sm:p-3 rounded w-full focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-sm"
                 />
               </div>
             </div>
           </div>
 
           {/* Form Section */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-100">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Enter {selectedReport} Dispatch Data</h2>
+          <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl shadow-lg border border-gray-100">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Enter {selectedReport} Dispatch Data</h2>
             {renderForm()}
-            <div className="mt-6 flex gap-4">
+            <div className="mt-5 flex flex-col sm:flex-row sm:gap-4 gap-3">
               <button
                 onClick={handlePreview}
-                className="bg-blue-500 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:bg-blue-600 transition-colors text-sm sm:text-base"
+                className="bg-blue-500 text-white px-3 py-2 sm:px-5 sm:py-3 rounded-lg hover:bg-blue-600 transition-colors text-xs sm:text-sm md:text-base"
               >
                 Preview
               </button>
               <button
                 onClick={handleSubmit}
-                className="bg-green-500 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:bg-green-600 transition-colors text-sm sm:text-base"
+                className="bg-green-500 text-white px-3 py-2 sm:px-5 sm:py-3 rounded-lg hover:bg-green-600 transition-colors text-xs sm:text-sm md:text-base"
               >
                 Submit
               </button>
@@ -1255,15 +1260,15 @@ const Dispatch: React.FC = () => {
           {/* Preview and Data Section */}
           <div className="md:col-span-2 lg:col-span-1">
             {previewData && (
-              <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-100 mb-4 sm:mb-6">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Preview Data</h2>
-                <div className="bg-gray-50 p-4 rounded-lg overflow-x-auto">
-                  <pre className="text-xs sm:text-sm text-gray-700">{JSON.stringify(previewData, null, 2)}</pre>
+              <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl shadow-lg border border-gray-100 mb-3 sm:mb-4 md:mb-6">
+                <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Preview Data</h2>
+                <div className="bg-gray-50 p-3 sm:p-4 md:p-6 rounded-lg overflow-x-auto">
+                  <pre className="text-xs sm:text-sm md:text-base text-gray-700">{JSON.stringify(previewData, null, 2)}</pre>
                 </div>
               </div>
             )}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-100">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">{selectedReport} Dispatch Report</h2>
+            <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl shadow-lg border border-gray-100">
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-4">{selectedReport} Dispatch Report</h2>
               {selectedReport === 'Oil' && <Oil data={filteredOilData} />}
               {selectedReport === 'Chippy' && <Chippy data={filteredChippyData} />}
               {selectedReport === 'Soap' && <Soap data={filteredSoapData} />}
