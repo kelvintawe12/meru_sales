@@ -24,6 +24,9 @@ interface FormData {
   preparedBy: string;
   approvedBy: string;
   additionalInfo?: string;
+  invoiceNumber?: string; // New field for invoice number
+  issueDate?: string; // New field for issue date
+  dueDate?: string; // New field for due date
 }
 
 const DispatchReceipt: React.FC = () => {
@@ -35,13 +38,14 @@ const DispatchReceipt: React.FC = () => {
     loadingOrderDate: '',
     purchaseOrderRef: '',
     purchaseOrderDate: '',
-    products: [
-      { product: '', sku: '', quantity: '', pricePerUnit: '', totalValue: '' },
-    ],
+    products: [{ product: '', sku: '', quantity: '', pricePerUnit: '', totalValue: '' }],
     authorizedBy: '',
     preparedBy: '',
     approvedBy: '',
     additionalInfo: '',
+    invoiceNumber: '',
+    issueDate: '',
+    dueDate: '',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormData | string, string>>>({});
 
@@ -118,30 +122,34 @@ const DispatchReceipt: React.FC = () => {
     }
   };
 
-  // Handle PDF download
-  const handleDownloadPDF = () => {
-    if (!validateForm()) {
-      alert('Please fix the errors in the form before downloading.');
-      return;
-    }
+  // Generate PDF and return as Blob
+  const generatePDF = (): Blob => {
     const doc = new jsPDF();
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
 
-    doc.text('LOADING ORDER', 105, 15, { align: 'center' });
-    doc.text(`Customer: ${formData.customerDetails}`, 20, 30);
-    doc.text(`Loading Order No: ${formData.loadingOrderNo}`, 20, 40);
-    doc.text(`Vehicle Number: ${formData.vehicleNumber}`, 20, 50);
-    doc.text(`Driver Name: ${formData.driverName}`, 20, 60);
-    doc.text(`Loading Order Date: ${formData.loadingOrderDate}`, 20, 70);
-    doc.text(`Purchase Order Ref: ${formData.purchaseOrderRef}`, 20, 80);
-    doc.text(`Purchase Order Date: ${formData.purchaseOrderDate}`, 20, 90);
+    // Header
+    doc.text('DISPATCH RECEIPT', 105, 15, { align: 'center' });
+    doc.text('Meru Sales Ltd.', 20, 25);
+    doc.text('123 Business Avenue, Nairobi, Kenya', 20, 35);
+    doc.text('Phone: +254 700 123 456 | Email: info@merusales.co.ke', 20, 45);
+    doc.text(`Invoice Number: ${formData.invoiceNumber || 'N/A'}`, 20, 55);
+    doc.text(`Issue Date: ${formData.issueDate || 'N/A'}`, 20, 65);
+    doc.text(`Due Date: ${formData.dueDate || 'N/A'}`, 20, 75);
+    doc.text(`Customer: ${formData.customerDetails}`, 20, 85);
+    doc.text(`Loading Order No: ${formData.loadingOrderNo}`, 20, 95);
+    doc.text(`Vehicle Number: ${formData.vehicleNumber}`, 20, 105);
+    doc.text(`Driver Name: ${formData.driverName}`, 20, 115);
+    doc.text(`Loading Order Date: ${formData.loadingOrderDate}`, 20, 125);
+    doc.text(`Purchase Order Ref: ${formData.purchaseOrderRef}`, 20, 135);
+    doc.text(`Purchase Order Date: ${formData.purchaseOrderDate}`, 20, 145);
     if (formData.additionalInfo) {
-      doc.text(`Additional Info: ${formData.additionalInfo}`, 20, 100);
+      doc.text(`Additional Info: ${formData.additionalInfo}`, 20, 155);
     }
 
+    // Products Table
     doc.autoTable({
-      startY: formData.additionalInfo ? 110 : 100,
+      startY: formData.additionalInfo ? 165 : 155,
       head: [['Product', 'SKU', 'Quantity', 'Price/Unit', 'Total Value']],
       body: formData.products.map((prod) => [
         prod.product,
@@ -155,7 +163,66 @@ const DispatchReceipt: React.FC = () => {
       styles: { fontSize: 10 },
     });
 
-    let finalY = (doc as any).lastAutoTable.finalY || 120;
+    // Authorization
+    let finalY = (doc as any).lastAutoTable.finalY || 165;
+    doc.text(
+      'WE HEREBY AUTHORIZE YOU TO LOAD THE AFOREMENTIONED GOOD IN THE ABOVE STATED VEHICLE NUMBER VIDE LOADING ORDER NO AS MENTIONED ABOVE EVEN DATE. WE HEREBY FURTHER MANDATE YOU TO DEDUCT THE QUANTITY AS LOADED HEREIN ABOVE FROM THE QUANTITY IN OUR PURCHASE ORDER AND YOUR CORRESPONDING SALES ORDER FOR GOOD ORDER.',
+      20,
+      finalY + 10,
+      { maxWidth: 170 }
+    );
+    doc.text(`Authorized By: ${formData.authorizedBy}`, 20, finalY + 50);
+    doc.text(`Prepared By: ${formData.preparedBy}`, 80, finalY + 50);
+    doc.text(`Approved By: ${formData.approvedBy}`, 140, finalY + 50);
+
+    return doc.output('blob');
+  };
+
+  // Handle PDF download
+  const handleDownloadPDF = () => {
+    if (!validateForm()) {
+      alert('Please fix the errors in the form before downloading.');
+      return;
+    }
+    const doc = new jsPDF();
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+
+    // Same PDF content as generatePDF
+    doc.text('DISPATCH RECEIPT', 105, 15, { align: 'center' });
+    doc.text('Meru Sales Ltd.', 20, 25);
+    doc.text('123 Business Avenue, Nairobi, Kenya', 20, 35);
+    doc.text('Phone: +254 700 123 456 | Email: info@merusales.co.ke', 20, 45);
+    doc.text(`Invoice Number: ${formData.invoiceNumber || 'N/A'}`, 20, 55);
+    doc.text(`Issue Date: ${formData.issueDate || 'N/A'}`, 20, 65);
+    doc.text(`Due Date: ${formData.dueDate || 'N/A'}`, 20, 75);
+    doc.text(`Customer: ${formData.customerDetails}`, 20, 85);
+    doc.text(`Loading Order No: ${formData.loadingOrderNo}`, 20, 95);
+    doc.text(`Vehicle Number: ${formData.vehicleNumber}`, 20, 105);
+    doc.text(`Driver Name: ${formData.driverName}`, 20, 115);
+    doc.text(`Loading Order Date: ${formData.loadingOrderDate}`, 20, 125);
+    doc.text(`Purchase Order Ref: ${formData.purchaseOrderRef}`, 20, 135);
+    doc.text(`Purchase Order Date: ${formData.purchaseOrderDate}`, 20, 145);
+    if (formData.additionalInfo) {
+      doc.text(`Additional Info: ${formData.additionalInfo}`, 20, 155);
+    }
+
+    doc.autoTable({
+      startY: formData.additionalInfo ? 165 : 155,
+      head: [['Product', 'SKU', 'Quantity', 'Price/Unit', 'Total Value']],
+      body: formData.products.map((prod) => [
+        prod.product,
+        prod.sku,
+        prod.quantity,
+        prod.pricePerUnit,
+        prod.totalValue,
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [0, 102, 204], textColor: [255, 255, 255] },
+      styles: { fontSize: 10 },
+    });
+
+    let finalY = (doc as any).lastAutoTable.finalY || 165;
     doc.text(
       'WE HEREBY AUTHORIZE YOU TO LOAD THE AFOREMENTIONED GOOD IN THE ABOVE STATED VEHICLE NUMBER VIDE LOADING ORDER NO AS MENTIONED ABOVE EVEN DATE. WE HEREBY FURTHER MANDATE YOU TO DEDUCT THE QUANTITY AS LOADED HEREIN ABOVE FROM THE QUANTITY IN OUR PURCHASE ORDER AND YOUR CORRESPONDING SALES ORDER FOR GOOD ORDER.',
       20,
@@ -169,9 +236,137 @@ const DispatchReceipt: React.FC = () => {
     doc.save('DispatchReceipt.pdf');
   };
 
+  // Handle sharing
+  const handleShare = async () => {
+    if (!validateForm()) {
+      alert('Please fix the errors in the form before sharing.');
+      return;
+    }
+
+    const pdfBlob = generatePDF();
+    const pdfFile = new File([pdfBlob], 'DispatchReceipt.pdf', { type: 'application/pdf' });
+
+    // Simulated shareable link (requires backend for persistence)
+    const shareableLink = `https://merusales.co.ke/receipt/${formData.invoiceNumber || 'temp'}`;
+
+    const shareData = {
+      title: 'Dispatch Receipt',
+      text: `Dispatch Receipt for Loading Order No: ${formData.loadingOrderNo}`,
+      url: shareableLink,
+      files: [pdfFile],
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      // Fallback: Show manual share options
+      alert('Native sharing not supported. Use the buttons below to share via Email, WhatsApp, or copy the link.');
+    }
+  };
+
+  // Handle email share
+  const handleEmailShare = () => {
+    if (!validateForm()) {
+      alert('Please fix the errors in the form before sharing.');
+      return;
+    }
+    const subject = `Dispatch Receipt - Loading Order No: ${formData.loadingOrderNo}`;
+    const body = `Dear Recipient,\n\nAttached is the dispatch receipt for Loading Order No: ${formData.loadingOrderNo}.\n\nDetails:\nCustomer: ${formData.customerDetails}\nInvoice Number: ${formData.invoiceNumber || 'N/A'}\nIssue Date: ${formData.issueDate || 'N/A'}\n\nBest regards,\nMeru Sales Ltd.`;
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
+  };
+
+  // Handle WhatsApp share
+  const handleWhatsAppShare = () => {
+    if (!validateForm()) {
+      alert('Please fix the errors in the form before sharing.');
+      return;
+    }
+    const message = `Dispatch Receipt for Loading Order No: ${formData.loadingOrderNo}\nCustomer: ${formData.customerDetails}\nInvoice Number: ${formData.invoiceNumber || 'N/A'}\nView receipt: https://merusales.co.ke/receipt/${formData.invoiceNumber || 'temp'}`;
+    const whatsappLink = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappLink, '_blank');
+  };
+
+  // Handle copy link
+  const handleCopyLink = () => {
+    if (!validateForm()) {
+      alert('Please fix the errors in the form before sharing.');
+      return;
+    }
+    const shareableLink = `https://merusales.co.ke/receipt/${formData.invoiceNumber || 'temp'}`;
+    navigator.clipboard.writeText(shareableLink).then(() => {
+      alert('Link copied to clipboard!');
+    }).catch(() => {
+      alert('Failed to copy link. Please try again.');
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 font-sans print:bg-white">
+      {/* Header Section */}
+      <header className="max-w-5xl mx-auto mb-6 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg shadow-xl p-6 print:bg-white print:text-black print:shadow-none">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+          {/* Logo Placeholder */}
+          <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 print:bg-transparent">
+            <span className="text-sm">Logo</span>
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl font-bold">Meru Sales Ltd.</h1>
+            <p className="text-sm sm:text-base mt-2">
+              123 Business Avenue, Nairobi, Kenya<br />
+              Phone: +254 700 123 456 | Email: info@merusales.co.ke<br />
+              Website: www.merusales.co.ke
+            </p>
+          </div>
+        </div>
+        <h2 className="text-xl sm:text-2xl font-semibold mt-4 text-center print:text-black">
+          Dispatch Receipt
+        </h2>
+      </header>
+
       <div className="max-w-5xl mx-auto bg-white border border-gray-300 p-4 sm:p-6 rounded-lg shadow-lg print:shadow-none print:border-black">
+        {/* Invoice Details */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 border-b border-gray-300 pb-4 print:border-black">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Invoice Number</label>
+            <input
+              type="text"
+              name="invoiceNumber"
+              placeholder="INV-001"
+              value={formData.invoiceNumber}
+              onChange={handleInputChange}
+              className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 print:border-0"
+              aria-label="Invoice Number"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Issue Date</label>
+            <input
+              type="date"
+              name="issueDate"
+              value={formData.issueDate}
+              onChange={handleInputChange}
+              className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 print:border-0"
+              aria-label="Issue Date"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Due Date</label>
+            <input
+              type="date"
+              name="dueDate"
+              value={formData.dueDate}
+              onChange={handleInputChange}
+              className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 print:border-0"
+              aria-label="Due Date"
+            />
+          </div>
+        </div>
+
         {/* Header Section */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 border-b border-gray-300 pb-4 mb-4 print:border-black print:gap-0">
           <div className="sm:col-span-3 border border-gray-300 p-2 rounded print:border-black">
@@ -451,56 +646,86 @@ const DispatchReceipt: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mt-4 print:gap-0">
             <div className="sm:col-span-6 border border-gray-300 p-2 rounded print:border-black">
               <input
-                type="text"
-                name="authorizedBy"
-                placeholder="For & On Behalf Of"
-                value={formData.authorizedBy}
-                onChange={handleInputChange}
-                className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 print:border-0"
-                aria-label="Authorized By"
+                        type="text"
+                        name="authorizedBy"
+                        placeholder="For & On Behalf Of"
+                        value={formData.authorizedBy}
+                        onChange={handleInputChange}
+                        className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 print:border-0"
+                        aria-label="Authorized By"
               />
+            </div>
+            <div className DudeClassName="sm:col-span-3 border border-gray-300 p-2 rounded print:border-black">
+              <input
+                        type="text"
+                        name="preparedBy"
+                        placeholder="Order Prepared By"
+                        value={formData.preparedBy}
+                        onChange={handleInputChange}
+                        className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-blue-500 print:border-0"
+                        aria-label="Prepared By"
+                      />
             </div>
             <div className="sm:col-span-3 border border-gray-300 p-2 rounded print:border-black">
               <input
-                type="text"
-                name="preparedBy"
-                placeholder="Order Prepared By"
-                value={formData.preparedBy}
-                onChange={handleInputChange}
-                className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-center print:border-0"
-                aria-label="Prepared By"
-              />
-            </div>
-            <div className="sm:col-span-3 border border-gray-300 p-2 rounded print:border-black">
-              <input
-                type="text"
-                name="approvedBy"
-                placeholder="Order Approved By"
-                value={formData.approvedBy}
-                onChange={handleInputChange}
-                className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-center print:border-0"
-                aria-label="Approved By"
-              />
+                        type="text"
+                        name="approvedBy"
+                        placeholder="Order Approved By"
+                        value={formData.approvedBy}
+                        onChange={handleInputChange}
+                        className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-center print:border-0"
+                        aria-label="Approved By"
+                      />
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="mt-6 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4 print:hidden">
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-            aria-label="Print Receipt"
-          >
-            Print
-          </button>
-          <button
-            onClick={handleDownloadPDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            aria-label="Download PDF"
-          >
-            Download PDF
-          </button>
+        {/* Action Buttons and Share Options */}
+        <div className="mt-6 flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 justify-end print:hidden">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+              aria-label="Print Receipt"
+            >
+              Print
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+              aria-label="Download PDF"
+            >
+              Download PDF
+            </button>
+            <button
+              onClick={handleShare}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+              aria-label="Share Receipt"
+            >
+              Share
+            </button>
+            <button
+              onClick={handleEmailShare}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+              aria-label="Share via Email"
+            >
+              Email
+            </button>
+            <button
+              onClick={handleWhatsAppShare}
+              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm"
+              aria-label="Share via WhatsApp"
+            >
+              WhatsApp
+            </button>
+            <button
+              onClick={handleCopyLink}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 text-sm"
+              aria-label="Copy Share Link"
+            >
+              Copy Link
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,460 +1,562 @@
-import React, { useEffect, useState } from 'react';
-import { Card } from '../components/ui/Card';
-import { SaveIcon } from 'lucide-react';
-import { useNotifications } from '../hooks/useNotifications';
 
-// Defining types for chemicals and form data
-type Chemical = {
-  quantity: string;
-  dosage: string;
-};
-type ChemicalsFormData = {
-  date: string;
-  feedMT: string;
-  bleachingEarth: Chemical;
-  phosphoricAcid: Chemical;
-  citricAcid: Chemical;
-};
+import React, { useState, useEffect } from 'react';
+import Papa from 'papaparse';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { FaPlus, FaTrash, FaCalendarAlt, FaSearch, FaPrint, FaFilePdf } from 'react-icons/fa';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
-const defaultFormData: ChemicalsFormData = {
-  date: new Date().toISOString().split('T')[0],
-  feedMT: '',
-  bleachingEarth: { quantity: '', dosage: '' },
-  phosphoricAcid: { quantity: '', dosage: '' },
-  citricAcid: { quantity: '', dosage: '' }
-};
+// Interfaces
+interface RawDispatchRow {
+  DATE: string | null;
+  SONO: string | null;
+  INVOICENO: string | null;
+  'CUSTOMER&DEPOTNAME': string | null;
+  TRUCKstatus: string | null;
+  '20L': string | null;
+  '10L': string | null;
+  '5L': string | null;
+  '3L': string | null;
+  '1L': string | null;
+  '250ML': string | null;
+  '500ML': string | null;
+  MT: string | null;
+}
 
-export const Chemicals: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-  const [formData, setFormData] = useState<ChemicalsFormData>(defaultFormData);
-  const [showPreview, setShowPreview] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+interface PendingOrder {
+  id: string;
+  customerName: string;
+  date: Date;
+  soNumber: string;
+  quantities: {
+    '20L': number;
+    '10L': number;
+    '5L': number;
+    '3L': number;
+    '1L': number;
+    '250ML': number;
+    '500ML': number;
+  };
+  metricTons: number;
+}
 
-  const { notifications, loading: notificationsLoading, addNotification } = useNotifications();
+const Chemicals: React.FC = () => {
+  const [reportDate, setReportDate] = useState<Date>(new Date(2025, 4, 26)); // May 26, 2025
+  const [orders, setOrders] = useState<PendingOrder[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [newOrder, setNewOrder] = useState<Omit<PendingOrder, 'id'>>({
+    customerName: '',
+    date: new Date(),
+    soNumber: '',
+    quantities: {
+      '20L': 0,
+      '10L': 0,
+      '5L': 0,
+      '3L': 0,
+      '1L': 0,
+      '250ML': 0,
+      '500ML': 0,
+    },
+    metricTons: 0,
+  });
 
-  // Offline caching: restore on mount
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    const cached = localStorage.getItem('chemicalsForm');
-    if (cached) setFormData(JSON.parse(cached));
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  // Offline caching: save on change
-  useEffect(() => {
-    localStorage.setItem('chemicalsForm', JSON.stringify(formData));
-  }, [formData]);
-
-  useEffect(() => {
-    const fetchLatest = async () => {
-      setFetching(true);
-      try {
-        const res = await fetch('http://localhost:4000/api?endpoint=chemicals');
-        if (!res.ok) throw new Error('Failed to fetch chemical data');
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const latest = data[0];
-          setFormData({
-            date: latest.date || defaultFormData.date,
-            feedMT: latest.feedMT?.toString() || '',
-            bleachingEarth: {
-              quantity: latest.bleachingEarth?.quantity?.toString() || '',
-              dosage: latest.bleachingEarth?.dosage?.toString() || ''
-            },
-            phosphoricAcid: {
-              quantity: latest.phosphoricAcid?.quantity?.toString() || '',
-              dosage: latest.phosphoricAcid?.dosage?.toString() || ''
-            },
-            citricAcid: {
-              quantity: latest.citricAcid?.quantity?.toString() || '',
-              dosage: latest.citricAcid?.dosage?.toString() || ''
-            }
-          });
-        } else {
-          setFormData(defaultFormData);
-          addNotification('No previous chemical data found. Using defaults.', 'info');
-        }
-      } catch (error) {
-        setFormData(defaultFormData);
-        addNotification('Could not fetch chemical data. Using defaults.', 'warning');
-      } finally {
-        setFetching(false);
-      }
-    };
-    fetchLatest();
-    // eslint-disable-next-line
-  }, []);
-
-  // Helper to safely get chemical object
-  const getChemical = (id: keyof ChemicalsFormData) => {
-    const chem = formData[id];
-    if (typeof chem === 'object' && chem !== null && 'quantity' in chem && 'dosage' in chem) {
-      return chem as Chemical;
-    }
-    return { quantity: '', dosage: '' };
+  // Parse Excel serial date
+  const parseExcelDate = (serial: number): Date => {
+    if (isNaN(serial)) return new Date();
+    return new Date((serial - 25569) * 86400 * 1000);
   };
 
-  // Automatically calculate dosages when feedMT or any chemical quantity changes
+  // Load data from Excel
   useEffect(() => {
-    const feedMT = parseFloat(formData.feedMT) || 0;
-    if (feedMT === 0) {
-      setFormData(prev => ({
-        ...prev,
-        bleachingEarth: { ...prev.bleachingEarth, dosage: '' },
-        phosphoricAcid: { ...prev.phosphoricAcid, dosage: '' },
-        citricAcid: { ...prev.citricAcid, dosage: '' }
-      }));
+    const csvData = loadFileData('AIL_DISPATCH 26-May-2025.xlsx');
+    Papa.parse<RawDispatchRow>(csvData, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim().replace(/\s+/g, '').replace(/^"|"$/g, ''),
+      transform: (value) => (value.trim() === '' ? null : value.trim()),
+      complete: (results) => {
+        const parsedOrders: PendingOrder[] = results.data
+          .filter((row) => row.DATE && row.MT && !isNaN(parseFloat(row.MT)) && row.TRUCKstatus !== 'Delivered')
+          .map((row) => ({
+            id: row.INVOICENO || Date.now().toString(),
+            customerName: row['CUSTOMER&DEPOTNAME'] || 'Unknown',
+            date: parseExcelDate(parseFloat(row.DATE!)),
+            soNumber: row.SONO || 'N/A',
+            quantities: {
+              '20L': parseFloat(row['20L'] || '0'),
+              '10L': parseFloat(row['10L'] || '0'),
+              '5L': parseFloat(row['5L'] || '0'),
+              '3L': parseFloat(row['3L'] || '0'),
+              '1L': parseFloat(row['1L'] || '0'),
+              '250ML': parseFloat(row['250ML'] || '0'),
+              '500ML': parseFloat(row['500ML'] || '0'),
+            },
+            metricTons: parseFloat(row.MT!),
+          }));
+        setOrders(parsedOrders);
+        setLoading(false);
+      },
+      error: () => {
+        setError('Failed to load dispatch data');
+        setLoading(false);
+      },
+    });
+  }, []);
+
+  // Handlers
+  const handleAddOrder = () => {
+    if (!newOrder.customerName || !newOrder.soNumber) {
+      alert('Customer Name and S.O. Number are required');
       return;
     }
-    const clamp = (val: number) => Math.min(100, val);
-
-    setFormData(prev => ({
-      ...prev,
-      bleachingEarth: {
-        ...prev.bleachingEarth,
-        dosage:
-          prev.bleachingEarth.quantity && feedMT
-            ? clamp((parseFloat(prev.bleachingEarth.quantity) / feedMT) * 100).toFixed(2)
-            : ''
+    const order: PendingOrder = {
+      ...newOrder,
+      id: Date.now().toString(),
+    };
+    setOrders([...orders, order]);
+    setNewOrder({
+      customerName: '',
+      date: new Date(),
+      soNumber: '',
+      quantities: {
+        '20L': 0,
+        '10L': 0,
+        '5L': 0,
+        '3L': 0,
+        '1L': 0,
+        '250ML': 0,
+        '500ML': 0,
       },
-      phosphoricAcid: {
-        ...prev.phosphoricAcid,
-        dosage:
-          prev.phosphoricAcid.quantity && feedMT
-            ? clamp((parseFloat(prev.phosphoricAcid.quantity) / feedMT) * 100).toFixed(2)
-            : ''
+      metricTons: 0,
+    });
+    (document.getElementById('addOrderModal') as HTMLDialogElement)?.close();
+  };
+
+  const handleDeleteOrder = (id: string) => {
+    setOrders(orders.filter((order) => order.id !== id));
+  };
+
+  const handleQuantityChange = (id: string, size: keyof PendingOrder['quantities'], value: number) => {
+    setOrders(
+      orders.map((order) =>
+        order.id === id
+          ? {
+              ...order,
+              quantities: {
+                ...order.quantities,
+                [size]: value,
+              },
+            }
+          : order
+      )
+    );
+  };
+
+  const handleNewQuantityChange = (size: keyof PendingOrder['quantities'], value: number) => {
+    setNewOrder({
+      ...newOrder,
+      quantities: {
+        ...newOrder.quantities,
+        [size]: value,
       },
-      citricAcid: {
-        ...prev.citricAcid,
-        dosage:
-          prev.citricAcid.quantity && feedMT
-            ? clamp((parseFloat(prev.citricAcid.quantity) / feedMT) * 100).toFixed(2)
-            : ''
-      }
-    }));
-  }, [
-    formData.feedMT,
-    formData.bleachingEarth.quantity,
-    formData.phosphoricAcid.quantity,
-    formData.citricAcid.quantity
-  ]);
-
-  const handleChange = (chemical: keyof ChemicalsFormData, field: 'quantity' | 'dosage', value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [chemical]: {
-        ...(prev[chemical] as Chemical),
-        [field]: value
-      }
-    }));
+    });
   };
 
-  const handleFeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      feedMT: e.target.value
-    }));
+  const calculateTotal = (size: keyof PendingOrder['quantities']) => {
+    return filteredOrders.reduce((sum, order) => sum + order.quantities[size], 0);
   };
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      date: e.target.value
-    }));
+  const calculateGrandTotalMT = () => {
+    return filteredOrders.reduce((sum, order) => sum + order.metricTons, 0);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowPreview(true);
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(16);
+    doc.text('OIL PENDING ORDERS', 105, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(`As on: ${reportDate.toLocaleDateString('en-GB')}`, 20, 30);
+    doc.text('Meru Sales Ltd.', 20, 40);
+
+    doc.autoTable({
+      startY: 50,
+      head: [['Customer', 'Date', 'S.O.', '20L', '10L', '5L', '3L', '1L', '250ML', '500ML', 'MT']],
+      body: filteredOrders.map((order) => [
+        order.customerName,
+        order.date.toLocaleDateString('en-GB'),
+        order.soNumber,
+        order.quantities['20L'],
+        order.quantities['10L'],
+        order.quantities['5L'],
+        order.quantities['3L'],
+        order.quantities['1L'],
+        order.quantities['250ML'],
+        order.quantities['500ML'],
+        order.metricTons.toFixed(2),
+      ]),
+      foot: [
+        [
+          'TOTAL',
+          '',
+          '',
+          calculateTotal('20L'),
+          calculateTotal('10L'),
+          calculateTotal('5L'),
+          calculateTotal('3L'),
+          calculateTotal('1L'),
+          calculateTotal('250ML'),
+          calculateTotal('500ML'),
+          calculateGrandTotalMT().toFixed(2),
+        ],
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [0, 102, 204], textColor: [255, 255, 255] },
+      styles: { fontSize: 10 },
+    });
+
+    doc.save('PendingOrders.pdf');
   };
 
-  const handleConfirm = async () => {
-    setShowConfirm(false);
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        'http://localhost:4000/api',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...formData,
-            type: 'chemicals'
-          })
-        }
-      );
-      const result = await response.json();
-      if (result.status === 200) {
-        addNotification('Chemical data submitted successfully!', 'success');
-        setFormData(defaultFormData); // Reset form on success
-        localStorage.removeItem('chemicalsForm');
-      } else {
-        addNotification(result.message || 'Error submitting chemical data', 'error');
-      }
-    } catch (error) {
-      addNotification('Error submitting chemical data', 'error');
-    } finally {
-      setIsLoading(false);
-    }
+  const handlePrint = () => {
+    window.print();
   };
+
+  // Filter orders
+  const filteredOrders = orders
+    .filter((order) => order.date <= reportDate)
+    .filter(
+      (order) =>
+        order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.soNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+  if (loading) return <div className="text-center text-xl p-10">Loading...</div>;
+  if (error) return <div className="text-center text-red-500 p-10">{error}</div>;
 
   return (
-    <div className="space-y-6">
-      {/* Notifications Section */}
-      <Card title="Notifications">
-        {notificationsLoading ? (
-          <div>Loading notifications...</div>
-        ) : (
-          <ul>
-            {notifications.length === 0 ? null : (
-              <li key={notifications[0].id} className="p-2 border rounded-md bg-green-50 text-green-900">
-                <strong>{notifications[0].type.toUpperCase()}:</strong> {notifications[0].message} {notifications[0].read ? '(Read)' : '(Unread)'} <em className="ml-2 text-xs text-gray-500">({notifications[0].timestamp})</em>
-              </li>
-            )}
-          </ul>
-        )}
-      </Card>
-      <Card title="Chemical Consumption Entry">
-        {fetching ? (
-          <div>Loading latest chemical data...</div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="container mx-auto p-4 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">OIL PENDING ORDERS</h1>
+          <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mt-4 sm:mt-0">
+            <div className="flex items-center">
+              <span className="mr-2 text-gray-600">As on:</span>
+              <DatePicker
+                selected={reportDate}
+                onChange={(date: Date) => setReportDate(date)}
+                dateFormat="dd/MM/yyyy"
+                className="border rounded p-2"
+              />
+              <FaCalendarAlt className="ml-2 text-gray-500" />
+            </div>
+            <button
+              onClick={handlePrint}
+              className="bg-blue-600 text-white px-4 py-2 rounded flex items-center"
+            >
+              <FaPrint className="mr-2" /> Print
+            </button>
+            <button
+              onClick={generatePDF}
+              className="bg-green-600 text-white px-4 py-2 rounded flex items-center"
+            >
+              <FaFilePdf className="mr-2" /> PDF
+            </button>
+          </div>
+        </div>
+
+        {/* Search and Add New */}
+        <div className="flex flex-col sm:flex-row justify-between mb-6">
+          <div className="relative w-full sm:w-64 mb-4 sm:mb-0">
+            <input
+              type="text"
+              placeholder="Search customer or S.O..."
+              className="w-full pl-10 pr-4 py-2 border rounded-lg"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <FaSearch className="absolute left-3 top-3 text-gray-400" />
+          </div>
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center"
+            onClick={() => (document.getElementById('addOrderModal') as HTMLDialogElement)?.showModal()}
+          >
+            <FaPlus className="mr-2" /> Add New Order
+          </button>
+        </div>
+
+        {/* Orders Table */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white border border-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="py-3 px-4 border-b text-left font-semibold text-gray-700">CUSTOMER</th>
+                <th className="py-3 px-4 border-b text-left font-semibold text-gray-700">DATE</th>
+                <th className="py-3 px-4 border-b text-left font-semibold text-gray-700">S.O. NO.</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">20L</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">10L</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">5L</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">3L</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">1L</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">250ML</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">500ML</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">MT</th>
+                <th className="py-3 px-4 border-b text-center font-semibold text-gray-700">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOrders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="py-3 px-4 border-b">{order.customerName}</td>
+                  <td className="py-3 px-4 border-b">{order.date.toLocaleDateString('en-GB')}</td>
+                  <td className="py-3 px-4 border-b">{order.soNumber}</td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.quantities['20L']}
+                      onChange={(e) => handleQuantityChange(order.id, '20L', parseInt(e.target.value) || 0)}
+                      className="w-16 text-center border rounded py-1"
+                    />
+                  </td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.quantities['10L']}
+                      onChange={(e) => handleQuantityChange(order.id, '10L', parseInt(e.target.value) || 0)}
+                      className="w-16 text-center border rounded py-1"
+                    />
+                  </td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.quantities['5L']}
+                      onChange={(e) => handleQuantityChange(order.id, '5L', parseInt(e.target.value) || 0)}
+                      className="w-16 text-center border rounded py-1"
+                    />
+                  </td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.quantities['3L']}
+                      onChange={(e) => handleQuantityChange(order.id, '3L', parseInt(e.target.value) || 0)}
+                      className="w-16 text-center border rounded py-1"
+                    />
+                  </td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.quantities['1L']}
+                      onChange={(e) => handleQuantityChange(order.id, '1L', parseInt(e.target.value) || 0)}
+                      className="w-16 text-center border rounded py-1"
+                    />
+                  </td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.quantities['250ML']}
+                      onChange={(e) => handleQuantityChange(order.id, '250ML', parseInt(e.target.value) || 0)}
+                      className="w-16 text-center border rounded py-1"
+                    />
+                  </td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.quantities['500ML']}
+                      onChange={(e) => handleQuantityChange(order.id, '500ML', parseInt(e.target.value) || 0)}
+                      className="w-16 text-center border rounded py-1"
+                    />
+                  </td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={order.metricTons}
+                      onChange={(e) => {
+                        setOrders(
+                          orders.map((o) =>
+                            o.id === order.id ? { ...o, metricTons: parseFloat(e.target.value) || 0 } : o
+                          )
+                        );
+                      }}
+                      className="w-16 text-center border rounded py-1"
+                    />
+                  </td>
+                  <td className="py-3 px-4 border-b text-center">
+                    <button
+                      onClick={() => handleDeleteOrder(order.id)}
+                      className="text-red-600 hover:text-red-800"
+                      title="Delete"
+                    >
+                      <FaTrash />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {/* Totals Row */}
+              <tr className="bg-gray-100 font-semibold">
+                <td className="py-3 px-4 border-b" colSpan={3}>
+                  TOTAL
+                </td>
+                <td className="py-3 px-4 border-b text-center">{calculateTotal('20L')}</td>
+                <td className="py-3 px-4 border-b text-center">{calculateTotal('10L')}</td>
+                <td className="py-3 px-4 border-b text-center">{calculateTotal('5L')}</td>
+                <td className="py-3 px-4 border-b text-center">{calculateTotal('3L')}</td>
+                <td className="py-3 px-4 border-b text-center">{calculateTotal('1L')}</td>
+                <td className="py-3 px-4 border-b text-center">{calculateTotal('250ML')}</td>
+                <td className="py-3 px-4 border-b text-center">{calculateTotal('500ML')}</td>
+                <td className="py-3 px-4 border-b text-center">{calculateGrandTotalMT().toFixed(2)}</td>
+                <td className="py-3 px-4 border-b"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Add New Order Modal */}
+        <dialog id="addOrderModal" className="modal">
+          <div className="modal-box w-11/12 max-w-5xl">
+            <form method="dialog">
+              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <h3 className="font-bold text-lg mb-6">Add New Pending Order</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
                 <input
-                  type="date"
-                  value={formData.date}
-                  onChange={handleDateChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#2C5B48] focus:border-[#2C5B48]"
+                  type="text"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.customerName}
+                  onChange={(e) => setNewOrder({ ...newOrder, customerName: e.target.value })}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Feed (MT)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <DatePicker
+                  selected={newOrder.date}
+                  onChange={(date: Date) => setNewOrder({ ...newOrder, date })}
+                  dateFormat="dd/MM/yyyy"
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">S.O. Number *</label>
+                <input
+                  type="text"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.soNumber}
+                  onChange={(e) => setNewOrder({ ...newOrder, soNumber: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">20L</label>
                 <input
                   type="number"
-                  value={formData.feedMT}
-                  onChange={handleFeedChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#2C5B48] focus:border-[#2C5B48]"
-                  required
+                  min="0"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.quantities['20L']}
+                  onChange={(e) => handleNewQuantityChange('20L', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">10L</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.quantities['10L']}
+                  onChange={(e) => handleNewQuantityChange('10L', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">5L</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.quantities['5L']}
+                  onChange={(e) => handleNewQuantityChange('5L', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">3L</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.quantities['3L']}
+                  onChange={(e) => handleNewQuantityChange('3L', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">1L</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.quantities['1L']}
+                  onChange={(e) => handleNewQuantityChange('1L', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">250ML</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.quantities['250ML']}
+                  onChange={(e) => handleNewQuantityChange('250ML', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">500ML</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.quantities['500ML']}
+                  onChange={(e) => handleNewQuantityChange('500ML', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Metric Tons (MT)</label>
+                <input
+                  type="number"
+                  min="0"
                   step="0.01"
+                  className="w-full p-2 border rounded"
+                  value={newOrder.metricTons}
+                  onChange={(e) => setNewOrder({ ...newOrder, metricTons: parseFloat(e.target.value) || 0 })}
                 />
               </div>
             </div>
-            <div className="border-t border-gray-200 pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-medium text-gray-800">
-                  Chemical Consumption
-                </h3>
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
-                  Formula: <code>(Quantity (kg) / Feed (MT)) × 100</code>
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Particulars
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Qty (kg)
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        % Dosage
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {([
-                      { id: 'bleachingEarth', label: 'Bleaching Earth' },
-                      { id: 'phosphoricAcid', label: 'Phosphoric Acid' },
-                      { id: 'citricAcid', label: 'Citric Acid' }
-                    ] as const).map(chemical => (
-                      <tr key={chemical.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {chemical.label}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <input
-                            type="number"
-                            value={getChemical(chemical.id).quantity}
-                            onChange={e => handleChange(chemical.id, 'quantity', e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#2C5B48] focus:border-[#2C5B48]"
-                            step="0.01"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <input
-                            type="text"
-                            value={getChemical(chemical.id).dosage}
-                            readOnly
-                            className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md"
-                            placeholder="%"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                className="px-6 py-2 rounded-lg font-semibold bg-blue-100 text-blue-700 border border-blue-300 shadow hover:bg-blue-200 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                onClick={() => setShowPreview(true)}
-              >
-                Preview
+            <div className="modal-action">
+              <button className="btn bg-blue-600 text-white" onClick={handleAddOrder}>
+                Add Order
               </button>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`inline-flex items-center px-6 py-2 rounded-lg font-semibold shadow-sm transition-colors
-                  ${isLoading
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-[#2C5B48] text-white hover:bg-[#224539] hover:scale-105'
-                  } focus:outline-none focus:ring-2 focus:ring-[#2C5B48]`}
-              >
-                <SaveIcon size={18} className="mr-2" />
-                {isLoading ? 'Submitting...' : 'Submit'}
-              </button>
-            </div>
-          </form>
-        )}
-      </Card>
-
-      {/* Preview Modal */}
-      {showPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 animate-fade-in-fast">
-          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6 relative animate-slide-up">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl transition"
-              onClick={() => setShowPreview(false)}
-              aria-label="Close preview"
-            >&times;</button>
-            <h4 className="text-xl font-bold mb-4 text-[#2C5B48]">Preview Submission</h4>
-            <div className="overflow-x-auto max-h-96">
-              <table className="min-w-full border border-gray-200 rounded-lg">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Field</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="px-4 py-2 text-gray-600">Date</td>
-                    <td className="px-4 py-2 text-gray-900">{formData.date}</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-2 text-gray-600">Feed (MT)</td>
-                    <td className="px-4 py-2 text-gray-900">{formData.feedMT}</td>
-                  </tr>
-                  {([
-                    { id: 'bleachingEarth', label: 'Bleaching Earth' },
-                    { id: 'phosphoricAcid', label: 'Phosphoric Acid' },
-                    { id: 'citricAcid', label: 'Citric Acid' }
-                  ] as const).map(chemical => (
-                    <React.Fragment key={chemical.id}>
-                      <tr>
-                        <td className="px-4 py-2 text-gray-600">{chemical.label} Qty (kg)</td>
-                        <td className="px-4 py-2 text-gray-900">{getChemical(chemical.id).quantity}</td>
-                      </tr>
-                      <tr>
-                        <td className="px-4 py-2 text-gray-600">{chemical.label} % Dosage</td>
-                        <td className="px-4 py-2 text-gray-900">{getChemical(chemical.id).dosage}</td>
-                      </tr>
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                className="px-6 py-2 rounded-lg font-semibold bg-gradient-to-r from-[#2C5B48] to-[#22c55e] text-white shadow-md hover:scale-105 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#2C5B48]"
-                onClick={() => { setShowPreview(false); setShowConfirm(true); }}
-              >
-                <span className="inline-block animate-pulse">Confirm &amp; Submit</span>
-              </button>
-              <button
-                className="px-6 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700 shadow hover:bg-gray-300 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                onClick={() => setShowPreview(false)}
-              >
-                Continue Editing
-              </button>
+              <form method="dialog">
+                <button className="btn ml-2">Cancel</button>
+              </form>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Confirm Submission Modal */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 animate-fade-in-fast">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 relative animate-bounce-in">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl transition"
-              onClick={() => setShowConfirm(false)}
-              aria-label="Close confirmation"
-            >&times;</button>
-            <div className="flex flex-col items-center">
-              <svg className="w-16 h-16 text-green-400 mb-4 animate-bounce" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.2" strokeWidth="4" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
-              </svg>
-              <h4 className="text-xl font-bold mb-2 text-[#2C5B48]">Confirm Submission</h4>
-              <p className="mb-6 text-gray-700 text-center">Are you sure you want to submit this form?</p>
-              <div className="flex gap-3">
-                <button
-                  className={`px-6 py-2 rounded-lg font-semibold bg-gradient-to-r from-[#2C5B48] to-[#22c55e] text-white shadow-md hover:scale-105 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#2C5B48] ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                  onClick={handleConfirm}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center">
-                      <svg className="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                      </svg>
-                      Submitting...
-                    </span>
-                  ) : (
-                    <span className="inline-block animate-pulse">Yes, Submit</span>
-                  )}
-                </button>
-                <button
-                  className="px-6 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700 shadow hover:bg-gray-300 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  onClick={() => setShowConfirm(false)}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Offline Banner */}
-      {isOffline && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded shadow z-50">
-          You are offline. Your form data is saved and will be available when you return.
-        </div>
-      )}
+        </dialog>
+      </div>
     </div>
   );
 };
+
+export default Chemicals;
