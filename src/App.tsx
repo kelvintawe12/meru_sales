@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
@@ -15,6 +16,7 @@ import  Reports  from './pages/Reports';
 import { Submissions } from './pages/Submissions';
 import { ToasterProvider } from './components/ui/Toaster';
 import { MeruLoader } from './components/ui/MeruLoader';
+const Dispatch = React.lazy(() => import('./pages/Dispatch'));
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
@@ -113,6 +115,14 @@ export function App() {
               <Route path="/help" element={<Help />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
+              <Route
+              path="/dispatch"
+              element={
+                <React.Suspense fallback={<div>Loading...</div>}>
+                <Dispatch />
+                </React.Suspense>
+              }
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

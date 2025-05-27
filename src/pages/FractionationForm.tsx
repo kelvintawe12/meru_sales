@@ -6,6 +6,24 @@ import { useNotifications } from '../hooks/useNotifications';
 
 const BASE_URL = "http://localhost:4000/api";
 
+const transporterOptions = [
+  'MOUNT MERU',
+  'SELF TRUCK',
+  'CENTRAL GET'
+];
+
+const dispatchToOptions = [
+  'EXPORT'
+];
+
+const truckNoOptions = [
+  'RAF 303 P',
+  'BUJ 4647 A',
+  'RAI 405 J',
+  'RAC 063 F',
+  'RAF 216 P'
+];
+
 export const FractionationForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -31,7 +49,31 @@ export const FractionationForm: React.FC = () => {
     stearinMT: '',
     phenomolConsumption: '',
     oleinPercentage: '',
-    stearinPercentage: ''
+    stearinPercentage: '',
+    sno: '',
+    sono: '',
+    ticketNo: '',
+    invoiceNo: '',
+    truckNo: '',
+    driverNo: '',
+    transporter: '',
+    dispatchTo: '',
+    customer: '',
+    l20: '',
+    promoPc: '',
+    promoBox: '',
+    sq20: '',
+    l10: '',
+    l5: '',
+    l3: '',
+    l1: '',
+    sunflower1l: '',
+    l250ml: '',
+    l500ml: '',
+    sunflower500ml: '',
+    mt: '',
+    truckStatus: '',
+    gatePassNo: ''
   };
 
   const [formData, setFormData] = useState(defaultFormData);
@@ -83,7 +125,7 @@ export const FractionationForm: React.FC = () => {
     // eslint-disable-next-line
   }, [formData.fractionationFeed, formData.oleinMT, formData.stearinMT]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,

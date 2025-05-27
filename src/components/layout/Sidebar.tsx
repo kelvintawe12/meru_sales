@@ -71,6 +71,10 @@ export function Sidebar({ size, setSize }: SidebarProps) {
         path: '/submissions',
         label: "Today's Submissions",
         icon: <ListIcon size={20} />
+      }, {
+        path: '/dispatch',
+        label: 'Dispatch Reports',
+        icon: <ClipboardIcon size={20} />
       }]
     },
     // System Section
