@@ -17,14 +17,15 @@ import  Submissions  from './pages/Submissions';
 import Status from './pages/Status';
 import { ToasterProvider } from './components/ui/Toaster';
 import { MeruLoader } from './components/ui/MeruLoader';
+import Offline from './pages/Offline';
 const Dispatch = React.lazy(() => import('./pages/Dispatch'));
 const DispatchReceipt = React.lazy(() => import('./pages/DispatchReceipt'));
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
   '/dashboard': 'Dashboard',
-  '/vehicle-tracking': 'Refinery Data Entry',
-  '/fractionation-form': 'Fractionation Data Entry',
+  '/vehicle-tracking': 'vehicle Tracking',
+  '/fractionation-form': 'deports ',
   '/pending-orders': 'Orders',
   '/stocks': 'Stocks',
   '/mtd-summary': 'MTD Summary',
@@ -44,10 +45,33 @@ function usePageTitle(location: ReturnType<typeof useLocation>) {
 
 function NotFound() {
   return (
-    <div className="flex flex-col items-center justify-center h-full">
-      <h1 className="text-4xl font-bold mb-4">404</h1>
-      <p className="text-lg text-gray-600 mb-4">Page Not Found</p>
-      <a href="/" className="text-blue-600 underline">Go to Dashboard</a>
+    <div className="flex flex-col items-center justify-center h-full bg-white rounded-lg shadow-md p-8">
+      <div className="flex items-center mb-6">
+        <span className="text-6xl font-extrabold text-blue-600 mr-4">404</span>
+        <svg
+          className="w-12 h-12 text-blue-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 8v4m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"
+          />
+        </svg>
+      </div>
+      <h1 className="text-2xl font-semibold mb-2 text-gray-800">Page Not Found</h1>
+      <p className="text-gray-500 mb-6 text-center max-w-md">
+        Sorry, the page you are looking for doesn&apos;t exist or has been moved.
+      </p>
+      <a
+        href="/dashboard"
+        className="inline-block px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+      >
+        Go to Dashboard
+      </a>
     </div>
   );
 }
@@ -85,6 +109,24 @@ export function App() {
     sidebarSize === 'compact' ? 'ml-20' :
     'ml-64';
 
+  // Network status state
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
+    function handleOffline() {
+      setIsOnline(false);
+    }
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
     <ToasterProvider>
       {showLoader && <MeruLoader />}
@@ -105,6 +147,7 @@ export function App() {
           />
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             <Routes>
+              {!isOnline && <Route path="*" element={<Offline />} />}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/vehicle-tracking" element={<VehicleTrackingForm />} />

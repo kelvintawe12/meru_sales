@@ -213,10 +213,10 @@ const FractionationForm: React.FC = () => {
     const doc = new jsPDF();
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(16);
-    doc.text('Fractionation Dorm - Oil Dispatch Analysis', 105, 20, { align: 'center' });
+    doc.text('meru soyco - Oil Dispatch Analysis', 105, 20, { align: 'center' });
     doc.setFontSize(12);
-    doc.text('Meru Sales Ltd.', 20, 30);
-    doc.text('123 Business Avenue, Nairobi, Kenya', 20, 40);
+    doc.text('Meru Sales department.', 20, 30);
+    doc.text('kigali Rwanda - Kayonza', 20, 40);
 
     doc.setFontSize(14);
     doc.text('Summary', 20, 60);
@@ -237,9 +237,9 @@ const FractionationForm: React.FC = () => {
   // Share handlers
   const handleShare = async () => {
     const shareData = {
-      title: 'Fractionation Dorm - Oil Dispatch Analysis',
+      title: 'Fractionation Form - Oil Dispatch Analysis',
       text: 'Oil dispatch analysis for May 2025 from Meru Sales Ltd.',
-      url: 'https://merusales.co.ke/fractionation-dorm',
+      url: 'https://merusales.co.ke/fractionation-form',
     };
     if (navigator.share) {
       try {

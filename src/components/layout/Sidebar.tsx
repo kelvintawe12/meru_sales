@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboardIcon, FlaskConicalIcon, BeakerIcon, CalendarIcon,
@@ -16,6 +16,23 @@ export interface SidebarProps {
 
 export function Sidebar({ size, setSize }: SidebarProps) {
   const location = useLocation();
+
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
+    function handleOffline() {
+      setIsOnline(false);
+    }
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Cycle through sidebar sizes
   const handleToggle = () => {
@@ -39,8 +56,8 @@ export function Sidebar({ size, setSize }: SidebarProps) {
     {
       section: 'Data Entry',
       items: [{
-        path: '/refinery-form',
-        label: 'Refinery Form',
+        path: '/vehicle-tracking',
+        label: 'vehicle Tracking',
         icon: <FlaskConicalIcon size={20} />
       }, {
         path: '/stocks',
@@ -48,37 +65,26 @@ export function Sidebar({ size, setSize }: SidebarProps) {
         icon: <ClipboardIcon size={20} />
       }, {
         path: '/fractionation-form',
-        label: 'Fractionation Form',
+        label: 'Dispatches ',
         icon: <BeakerIcon size={20} />
       }, {
-        path: '/chemicals',
-        label: 'Chemicals Form',
-        icon: <FlaskConicalIcon size={20} />
+        path: '/pending-orders',
+        label: 'Pending Orders',
+        icon: <ListIcon size={20} />
+        
       }]
     },
-    // Reports Section
+    // Dispatch Receipts Section
     {
-      section: 'Reports & Analysis',
+      section: 'Dispatch Receipts',
       items: [{
-        path: '/mtd-summary',
-        label: 'MTD Summary',
-        icon: <CalendarIcon size={20} />
+      path: '/dispatch-receipt',
+      label: 'New receipt',
+      icon: <ClipboardIcon size={20} />
       }, {
-        path: '/reports',
-        label: 'Reports',
-        icon: <BarChart3Icon size={20} />
-      }, {
-        path: '/submissions',
-        label: "Today's Submissions",
-        icon: <ListIcon size={20} />
-      }, {
-        path: '/dispatch',
-        label: 'Dispatch Reports',
-        icon: <ClipboardIcon size={20} />
-      }, {
-        path: '/dispatch-receipt',
-        label: 'Dispatch Receipt',
-        icon: <ClipboardIcon size={20} />
+      path: '/dispatch',
+      label: 'Daily dispatch Reports',
+      icon: <ClipboardIcon size={20} />
       }]
     },
     // System Section
@@ -161,6 +167,13 @@ export function Sidebar({ size, setSize }: SidebarProps) {
           <div className={`p-3 bg-[#224539] rounded-lg ${size === 'full' ? 'flex items-center' : 'flex justify-center'}`}>
             <HelpCircleIcon size={20} />
             {size === 'full' && <span className="ml-3 text-sm">Need help?</span>}
+          </div>
+        </div>
+      )}
+      {!isClosed && !isOnline && (
+        <div className="absolute bottom-20 left-0 right-0 px-4">
+          <div className="p-3 bg-red-600 text-white rounded-lg text-center font-semibold">
+            You are currently offline. Some features may be unavailable.
           </div>
         </div>
       )}
