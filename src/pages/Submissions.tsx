@@ -1,223 +1,314 @@
+
 import React, { useEffect, useState } from 'react';
+import Papa from 'papaparse';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, BarChart, Bar
 } from 'recharts';
+import { FaSpinner } from 'react-icons/fa';
 
+// Colors for charts
 const COLORS = ['#2563eb', '#22c55e', '#f59e42', '#a855f7', '#f43f5e', '#eab308', '#14b8a6'];
 
-const BASE_URL = "http://localhost:4000/api";
-
-interface Stock {
-  id: number;
-  date: string;
-  cpo?: any[];
-  refinedOil?: any[];
-  deodorizerPower?: any[];
-  fractionationPower?: any[];
-  bleachingEarth?: any[];
-  phosphoricAcid?: any[];
-  tanks?: any[];
+// Interfaces
+interface RawDispatchRow {
+  DATE: string | null;
+  'S.O. NO': string | null;
+  INVOICENO: string | null;
+  'CUSTOMER&DEPOTNAME': string | null;
+  TRUCKstatus: string | null;
+  '20L': string | null;
+  '10L': string | null;
+  '5L': string | null;
+  '3L': string | null;
+  '1L': string | null;
+  '250ML': string | null;
+  '500ML': string | null;
+  MT: string | null;
 }
 
-interface Chemical {
-  id: number;
+interface DispatchOrder {
+  id: string;
   date: string;
-  feedMT: number;
-  bleachingEarth?: any[];
-  phosphoricAcid?: any[];
-  citricAcid?: any[];
+  soNumber: string;
+  customerName: string;
+  status: string;
+  quantities: {
+    '20L': number;
+    '10L': number;
+    '5L': number;
+    '3L': number;
+    '1L': number;
+    '250ML': number;
+    '500ML': number;
+  };
+  metricTons: number;
 }
 
-export const Submissions: React.FC = () => {
-  const [stocks, setStocks] = useState<Stock[]>([]);
-  const [chemicals, setChemicals] = useState<Chemical[]>([]);
-  const [loadingStocks, setLoadingStocks] = useState(true);
-  const [loadingChemicals, setLoadingChemicals] = useState(true);
-  const [errorStocks, setErrorStocks] = useState<string | null>(null);
-  const [errorChemicals, setErrorChemicals] = useState<string | null>(null);
+interface TrendData {
+  date: string;
+  metricTons: number;
+  pendingOrders: number;
+  deliveredOrders: number;
+}
 
+interface ProductDistribution {
+  name: string;
+  value: number;
+}
+
+interface CustomerDistribution {
+  customer: string;
+  orders: number;
+}
+
+// Card component
+interface CardProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+const Card: React.FC<CardProps> = ({ title, children }) => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+    <h2 className="text-xl font-semibold text-gray-800 mb-4">{title}</h2>
+    {children}
+  </div>
+);
+
+const Submissions: React.FC = () => {
+  const [orders, setOrders] = useState<DispatchOrder[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Parse Excel serial date
+  const parseExcelDate = (serial: number): Date => {
+    if (isNaN(serial)) return new Date();
+    return new Date((serial - 25569) * 86400 * 1000);
+  };
+
+  // Load and process data
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const csvData = loadFileData('AIL_DISPATCH 26-May-2025.xlsx');
+    Papa.parse<RawDispatchRow>(csvData, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim().replace(/\s+/g, '').replace(/^"|"$/g, ''),
+      transform: (value) => (value.trim() === '' ? null : value.trim()),
+      complete: (results) => {
+        const parsedOrders: DispatchOrder[] = results.data
+          .filter((row) => row.DATE && row.MT && !isNaN(parseFloat(row.MT)))
+          .map((row) => {
+            const date = parseExcelDate(parseFloat(row.DATE!));
+            return {
+              id: row.INVOICENO || Date.now().toString(),
+              date: date.toISOString().split('T')[0],
+              soNumber: row['S.O. NO'] || 'N/A',
+              customerName: row['CUSTOMER&DEPOTNAME'] || 'Unknown',
+              status: row.TRUCKstatus || 'Pending',
+              quantities: {
+                '20L': parseFloat(row['20L'] || '0'),
+                '10L': parseFloat(row['10L'] || '0'),
+                '5L': parseFloat(row['5L'] || '0'),
+                '3L': parseFloat(row['3L'] || '0'),
+                '1L': parseFloat(row['1L'] || '0'),
+                '250ML': parseFloat(row['250ML'] || '0'),
+                '500ML': parseFloat(row['500ML'] || '0'),
+              },
+              metricTons: parseFloat(row.MT!),
+            };
+          })
+          .filter((order) => order.date <= new Date().toISOString().split('T')[0]);
 
-    const fetchStocks = async () => {
-      try {
-        const response = await fetch(
-          `${BASE_URL}?endpoint=stocks`
-        );
-        if (!response.ok) throw new Error('Failed to fetch stocks');
-        const data = await response.json();
-        setStocks(data);
-      } catch (error: any) {
-        setErrorStocks(error.message);
-      } finally {
-        setLoadingStocks(false);
-      }
-    };
-
-    const fetchChemicals = async () => {
-      try {
-        const response = await fetch(
-          `${BASE_URL}?endpoint=chemicals`
-        );
-        if (!response.ok) throw new Error('Failed to fetch chemicals');
-        const data = await response.json();
-        setChemicals(data);
-      } catch (error: any) {
-        setErrorChemicals(error.message);
-      } finally {
-        setLoadingChemicals(false);
-      }
-    };
-
-    fetchStocks();
-    fetchChemicals();
+        setOrders(parsedOrders);
+        setLoading(false);
+      },
+      error: () => {
+        setError('Failed to load dispatch submissions');
+        setLoading(false);
+      },
+    });
   }, []);
 
-  const sumValues = (arr?: { value?: number; quantity?: number }[]) =>
-    arr ? arr.reduce((sum, item) => sum + (item.value ?? item.quantity ?? 0), 0) : 0;
+  // Prepare chart and table data
+  const trendData: TrendData[] = orders.reduce((acc, order) => {
+    const existing = acc.find((d) => d.date === order.date);
+    if (existing) {
+      existing.metricTons += order.metricTons;
+      if (order.status === 'Delivered') {
+        existing.deliveredOrders += 1;
+      } else {
+        existing.pendingOrders += 1;
+      }
+    } else {
+      acc.push({
+        date: order.date,
+        metricTons: order.metricTons,
+        pendingOrders: order.status === 'Pending' ? 1 : 0,
+        deliveredOrders: order.status === 'Delivered' ? 1 : 0,
+      });
+    }
+    return acc;
+  }, [] as TrendData[]).sort((a, b) => a.date.localeCompare(b.date));
 
-  const stockTrendData = stocks.map(stock => ({
-    date: new Date(stock.date).toLocaleDateString(),
-    cpo: sumValues(stock.cpo),
-    refinedOil: sumValues(stock.refinedOil),
-    deodorizerPower: sumValues(stock.deodorizerPower),
-    fractionationPower: sumValues(stock.fractionationPower),
-    tanks: stock.tanks ? stock.tanks.length : 0,
-  }));
+  const productDist: ProductDistribution[] = Object.keys(orders[0]?.quantities || {}).map((size) => ({
+    name: size,
+    value: orders.reduce((sum, o) => sum + o.quantities[size as keyof DispatchOrder['quantities']], 0),
+  })).filter((d) => d.value > 0);
 
-  const chemicalPieData = chemicals.length
-    ? [
-        { name: 'Bleaching Earth', value: chemicals.reduce((sum, c) => sum + sumValues(c.bleachingEarth), 0) },
-        { name: 'Phosphoric Acid', value: chemicals.reduce((sum, c) => sum + sumValues(c.phosphoricAcid), 0) },
-        { name: 'Citric Acid', value: chemicals.reduce((sum, c) => sum + sumValues(c.citricAcid), 0) }
-      ]
-    : [];
+  const customerDist: CustomerDistribution[] = Object.entries(
+    orders.reduce((acc, o) => {
+      acc[o.customerName] = (acc[o.customerName] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)
+  )
+    .map(([customer, orders]) => ({ customer, orders }))
+    .sort((a, b) => b.orders - a.orders)
+    .slice(0, 5);
 
-  // Bar chart data for tanks and refined oil
-  const barChartData = stocks.map(stock => ({
-    date: new Date(stock.date).toLocaleDateString(),
-    tanks: stock.tanks ? stock.tanks.length : 0,
-    refinedOil: sumValues(stock.refinedOil),
-  }));
-
-  // Simple summary table data (show only a few fields for today)
-  const summaryTableData = stocks.map(stock => ({
-    date: new Date(stock.date).toLocaleDateString(),
-    cpo: sumValues(stock.cpo),
-    refinedOil: sumValues(stock.refinedOil),
-    deodorizerPower: sumValues(stock.deodorizerPower),
-    tanks: stock.tanks ? stock.tanks.length : 0,
-  }));
+  const summaryTableData = orders
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 10)
+    .map((order) => ({
+      date: new Date(order.date).toLocaleDateString('en-GB'),
+      soNumber: order.soNumber,
+      customer: order.customerName,
+      metricTons: order.metricTons.toFixed(1),
+      status: order.status,
+    }));
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-6">Today's Submissions</h1>
+    <div className="container mx-auto p-4 bg-gray-50 min-h-screen space-y-6">
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">Dispatch Submissions</h1>
 
       {/* Trend Line Chart */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Refinery Trends</h2>
-        {loadingStocks ? (
-          <p>Loading stocks...</p>
-        ) : errorStocks ? (
-          <p className="text-red-600">Error: {errorStocks}</p>
+      <Card title="Dispatch Trends">
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <FaSpinner className="animate-spin text-blue-600" size={24} />
+          </div>
+        ) : error ? (
+          <p className="text-red-600">{error}</p>
+        ) : trendData.length === 0 ? (
+          <p className="text-gray-600">No dispatch data available.</p>
         ) : (
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={stockTrendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
+            <LineChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 12 }} label={{ value: 'MT', angle: -90, position: 'insideLeft' }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} label={{ value: 'Orders', angle: 90, position: 'insideRight' }} />
+              <Tooltip formatter={(value: number, name: string) => [value.toFixed(name === 'metricTons' ? 1 : 0), name]} />
               <Legend />
-              <Line type="monotone" dataKey="cpo" stroke="#2563eb" name="CPO" />
-              <Line type="monotone" dataKey="refinedOil" stroke="#22c55e" name="Refined Oil" />
-              <Line type="monotone" dataKey="deodorizerPower" stroke="#f59e42" name="Deodorizer Power" />
-              <Line type="monotone" dataKey="fractionationPower" stroke="#a855f7" name="Fractionation Power" />
+              <Line yAxisId="left" type="monotone" dataKey="metricTons" stroke="#2563eb" name="Metric Tons" />
+              <Line yAxisId="right" type="monotone" dataKey="pendingOrders" stroke="#f59e42" name="Pending Orders" />
+              <Line yAxisId="right" type="monotone" dataKey="deliveredOrders" stroke="#22c55e" name="Delivered Orders" />
             </LineChart>
           </ResponsiveContainer>
         )}
-      </section>
-
-      {/* Bar Chart */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Tanks & Refined Oil (Bar Chart)</h2>
-        {loadingStocks ? (
-          <p>Loading stocks...</p>
-        ) : errorStocks ? (
-          <p className="text-red-600">Error: {errorStocks}</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={barChartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="tanks" fill="#f59e42" name="Tanks" />
-              <Bar dataKey="refinedOil" fill="#22c55e" name="Refined Oil" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </section>
+      </Card>
 
       {/* Pie Chart */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Chemical Usage Distribution</h2>
-        {loadingChemicals ? (
-          <p>Loading chemicals...</p>
-        ) : errorChemicals ? (
-          <p className="text-red-600">Error: {errorChemicals}</p>
+      <Card title="Product Size Distribution">
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <FaSpinner className="animate-spin text-blue-600" size={24} />
+          </div>
+        ) : error ? (
+          <p className="text-red-600">{error}</p>
+        ) : productDist.length === 0 ? (
+          <p className="text-gray-600">No product data available.</p>
         ) : (
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
-                data={chemicalPieData}
+                data={productDist}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
-                label
+                label={({ name, value }) => `${name}: ${value.toFixed(1)}`}
               >
-                {chemicalPieData.map((entry, index) => (
+                {productDist.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(value: number) => `${value.toFixed(1)} units`} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
         )}
-      </section>
+      </Card>
 
-      {/* Responsive Summary Table */}
-      <section>
-        <h2 className="text-xl font-semibold mb-4">Summary Table</h2>
+      {/* Bar Chart */}
+      <Card title="Top Customers (Orders)">
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <FaSpinner className="animate-spin text-blue-600" size={24} />
+          </div>
+        ) : error ? (
+          <p className="text-red-600">{error}</p>
+        ) : customerDist.length === 0 ? (
+          <p className="text-gray-600">No customer data available.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={customerDist}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+              <XAxis dataKey="customer" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} label={{ value: 'Orders', angle: -90, position: 'insideLeft' }} />
+              <Tooltip formatter={(value: number) => `${value} orders`} />
+              <Legend />
+              <Bar dataKey="orders" fill="#2563eb" name="Orders" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
+
+      {/* Summary Table */}
+      <Card title="Recent Submissions">
         <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-300 text-sm">
-            <thead className="bg-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-100">
               <tr>
-                <th className="border px-2 py-1">Date</th>
-                <th className="border px-2 py-1">CPO</th>
-                <th className="border px-2 py-1">Refined Oil</th>
-                <th className="border px-2 py-1">Deodorizer Power</th>
-                <th className="border px-2 py-1">Tanks</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600 uppercase">Date</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600 uppercase">S.O. No</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600 uppercase">Customer</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600 uppercase">MT</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600 uppercase">Status</th>
               </tr>
             </thead>
-            <tbody>
-              {summaryTableData.map((row, idx) => (
-                <tr key={idx}>
-                  <td className="border px-2 py-1">{row.date}</td>
-                  <td className="border px-2 py-1">{row.cpo}</td>
-                  <td className="border px-2 py-1">{row.refinedOil}</td>
-                  <td className="border px-2 py-1">{row.deodorizerPower}</td>
-                  <td className="border px-2 py-1">{row.tanks}</td>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-4">
+                    <FaSpinner className="animate-spin text-blue-600" size={24} />
+                  </td>
                 </tr>
-              ))}
+              ) : error ? (
+                <tr>
+                  <td colSpan={5} className="text-center text-red-600 py-4">{error}</td>
+                </tr>
+              ) : summaryTableData.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center text-gray-600 py-4">No submissions available.</td>
+                </tr>
+              ) : (
+                summaryTableData.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-800">{row.date}</td>
+                    <td className="px-4 py-2 text-gray-800">{row.soNumber}</td>
+                    <td className="px-4 py-2 text-gray-800">{row.customer}</td>
+                    <td className="px-4 py-2 text-gray-800">{row.metricTons}</td>
+                    <td className="px-4 py-2 text-gray-800">{row.status}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 };
+
+export default Submissions;

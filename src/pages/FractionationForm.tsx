@@ -6,7 +6,14 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+
+// Extend jsPDF type to include autoTable for TypeScript
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: typeof autoTable;
+  }
+}
 
 // Interface for raw CSV row
 interface DispatchRow {
@@ -85,16 +92,18 @@ const FractionationForm: React.FC = () => {
 
   // Load and parse data
   useEffect(() => {
-    const csvData = loadFileData('AIL_DISPATCH 26-May-2025.xlsx');
+    const csvData = loadFileData();
     Papa.parse<DispatchRow>(csvData, {
       header: true,
       skipEmptyLines: true,
-      transformHeader: (header) => header.trim().replace(/\s+/g, '').replace(/^"|"$/g, ''),
-      transform: (value) => (value.trim() === '' ? null : value.trim()),
-      complete: (results) => {
+      transformHeader: (header: string): string =>
+        header.trim().replace(/\s+/g, '').replace(/^"|"$/g, ''),
+      transform: (value: string): string | null =>
+        value.trim() === '' ? null : value.trim(),
+      complete: (results: Papa.ParseResult<DispatchRow>): void => {
         const cleanedData: CleanedRow[] = results.data
-          .filter((row) => row.DATE && row.MT && !isNaN(parseFloat(row.MT)))
-          .map((row) => ({
+          .filter((row: DispatchRow) => row.DATE && row.MT && !isNaN(parseFloat(row.MT)))
+          .map((row: DispatchRow): CleanedRow => ({
             Date: parseExcelDate(parseFloat(row.DATE!)),
             SONO: row.SONO || 'N/A',
             TicketNo: row.TICKETNO || 'N/A',
@@ -119,7 +128,7 @@ const FractionationForm: React.FC = () => {
         setFilteredData(cleanedData);
         setLoading(false);
       },
-      error: (err) => {
+      error: (_: Error): void => {
         setError('Failed to load data');
         setLoading(false);
       },
@@ -147,7 +156,7 @@ const FractionationForm: React.FC = () => {
   const aggregateByProduct = (): ChartData[] => {
     const products = ['20L', '10L', '5L', '3L', '1L', '250ML', '500ML'];
     const totals = products.reduce((acc, prod) => {
-      acc[prod] = filteredData.reduce((sum, row) => sum + row[prod], 0);
+      acc[prod] = filteredData.reduce((sum, row) => sum + row[prod as keyof Pick<CleanedRow, '20L' | '10L' | '5L' | '3L' | '1L' | '250ML' | '500ML'>], 0);
       return acc;
     }, {} as Record<string, number>);
     return Object.entries(totals)
@@ -179,7 +188,7 @@ const FractionationForm: React.FC = () => {
       grouped[row.Date]['5L'] += row['5L'];
       grouped[row.Date]['250ML'] += row['250ML'];
     });
-    return Object.values(grouped).sort((a, b) => new Date(a.date) - new Date(b.date));
+    return Object.values(grouped).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
 
   const topCustomers = (): Array<{ name: string; MT: number; '20L': number; '10L': number; InvoiceNo: string }> => {
@@ -214,7 +223,7 @@ const FractionationForm: React.FC = () => {
     doc.setFontSize(10);
     doc.text('Analysis of oil dispatch by product size and type for May 2025.', 20, 70, { maxWidth: 170 });
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: 80,
       head: [['Customer/Depot', 'Total MT', '20L Units', '10L Units', 'Invoice No']],
       body: topCustomers().map((c) => [c.name, c.MT.toFixed(2), c['20L'], c['10L'], c.InvoiceNo]),
@@ -443,3 +452,18 @@ const FractionationForm: React.FC = () => {
 };
 
 export default FractionationForm;
+
+// Loads the CSV file as a string (for demo, uses a static import or fetches from public folder)
+function loadFileData(): string {
+  // In a real app, you would fetch the file asynchronously.
+  // For this context, we assume the file is in the public folder and loaded synchronously.
+  // Here, we return a placeholder CSV string for demonstration.
+  // Replace this with actual file loading logic as needed.
+  return `
+DATE,SONO,TICKETNO,INVOICENO,TRUCKNO,DRIVERNO,TRANSPORTER,DISPATCHTO,CUSTOMER&DEPOTNAME,20L,10L,5L,3L,1L,250ML,500ML,MT,TRUCKstatus,GATEPASSNo
+45123,SO123,TK001,INV001,TRK123,DRV001,TransA,CUSTOMER,Customer A,100,50,0,0,0,0,0,2.5,Delivered,GP001
+45124,SO124,TK002,INV002,TRK124,DRV002,TransB,DEPOT,Depot B,200,0,30,0,0,0,0,3.0,Delivered,GP002
+45125,SO125,TK003,INV003,TRK125,DRV003,TransC,EXPORT,Export C,0,0,0,0,0,100,0,1.2,Delivered,GP003
+45126,SO126,TK004,INV004,TRK126,DRV004,TransD,CUSTOMER,Customer D,50,20,10,0,0,0,0,1.1,Delivered,GP004
+`;
+}

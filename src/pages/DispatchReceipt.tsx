@@ -148,7 +148,7 @@ const DispatchReceipt: React.FC = () => {
     }
 
     // Products Table
-    doc.autoTable({
+    doc.autoTable(doc, {
       startY: formData.additionalInfo ? 165 : 155,
       head: [['Product', 'SKU', 'Quantity', 'Price/Unit', 'Total Value']],
       body: formData.products.map((prod) => [
@@ -207,7 +207,7 @@ const DispatchReceipt: React.FC = () => {
       doc.text(`Additional Info: ${formData.additionalInfo}`, 20, 155);
     }
 
-    doc.autoTable({
+    doc.autoTable(doc, {
       startY: formData.additionalInfo ? 165 : 155,
       head: [['Product', 'SKU', 'Quantity', 'Price/Unit', 'Total Value']],
       body: formData.products.map((prod) => [
@@ -655,7 +655,7 @@ const DispatchReceipt: React.FC = () => {
                         aria-label="Authorized By"
               />
             </div>
-            <div className DudeClassName="sm:col-span-3 border border-gray-300 p-2 rounded print:border-black">
+            <div className="sm:col-span-3 border border-gray-300 p-2 rounded print:border-black">
               <input
                         type="text"
                         name="preparedBy"

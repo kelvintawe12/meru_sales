@@ -1,71 +1,80 @@
+
 import React, { useEffect, useState } from 'react';
 import { debounce } from 'lodash';
 import { Link } from 'react-router-dom';
+import Papa from 'papaparse';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell,
-  BarChart, Bar, ResponsiveContainer, Legend, LabelList, LineChart, Line
+  BarChart, Bar, ResponsiveContainer, Legend, LineChart, Line
 } from 'recharts';
-import { BarChart3Icon, TrendingUpIcon, DropletIcon, ScaleIcon, PlusIcon, Loader2 } from 'lucide-react';
+import { FaChartBar, FaTruck, FaWeightHanging, FaPercentage, FaPlus } from 'react-icons/fa';
 
-// Define interfaces for type safety
+// Interfaces
+interface RawDispatchRow {
+  DATE: string | null;
+  SONO: string | null;
+  INVOICENO: string | null;
+  'CUSTOMER&DEPOTNAME': string | null;
+  TRUCKstatus: string | null;
+  '20L': string | null;
+  '10L': string | null;
+  '5L': string | null;
+  '3L': string | null;
+  '1L': string | null;
+  '250ML': string | null;
+  '500ML': string | null;
+  MT: string | null;
+}
+
+interface DispatchOrder {
+  id: string;
+  customerName: string;
+  date: Date;
+  soNumber: string;
+  status: string;
+  quantities: {
+    '20L': number;
+    '10L': number;
+    '5L': number;
+    '3L': number;
+    '1L': number;
+    '250ML': number;
+    '500ML': number;
+  };
+  metricTons: number;
+}
+
 interface Stat {
   label: string;
   value: string;
-  icon: React.ReactNode;
+  icon: number;
   bg: string;
   sub?: string;
-  subIcon?: React.ReactNode;
-  subClass?: string;
+  subClassName?: string;
 }
 
-interface Submission {
-  id: number;
-  type: string;
-  time: string;
-  user: string;
-  data: { [key: string]: string };
-}
-
-interface DailyFeed {
+interface DailyDispatch {
   date: string;
-  feed: number;
+  metricTons: number;
 }
 
-interface ProductDist {
-  label: string;
+interface ProductDistribution {
+  name: string;
   value: number;
 }
 
-interface YieldHist {
-  range: string;
-  count: number;
+interface CustomerDistribution {
+  customer: string;
+  orders: number;
 }
 
-interface CpoRefinedOilTrend {
+interface StatusTrend {
   date: string;
-  cpo: number;
-  refinedOil: number;
+  pending: number;
+  delivered: number;
 }
 
-interface DeodorizerFractionationTrend {
-  date: string;
-  deodorizerPower: number;
-  fractionationPower: number;
-}
-
-interface ChemicalUsageTrend {
-  date: string;
-  bleachingEarth: number;
-  phosphoricAcid: number;
-  citricAcid: number;
-}
-
-interface TanksTrend {
-  date: string;
-  tanks: number;
-}
-
-// Card component with TypeScript props
+// Card component
 interface CardProps {
   title?: string;
   children: React.ReactNode;
@@ -73,171 +82,188 @@ interface CardProps {
 }
 
 const Card: React.FC<CardProps> = ({ title, children, className }) => (
-  <div className={`bg-white rounded-xl shadow-lg p-6 ${className}`}>
-    {title && <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>}
+  <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
+    {title && <h3 className="text-lg font-semibold text-gray-800 mb-4">{title}</h3>}
     {children}
   </div>
 );
 
-// Initial data with type annotations
-const initialStats: Stat[] = [
-  {
-    label: 'Total Feed',
-    value: '1393.4 MT',
-    icon: <DropletIcon size={24} className="text-blue-600" />,
-    bg: 'bg-blue-100',
-    sub: '+2.5% from last month',
-    subIcon: <TrendingUpIcon size={14} className="mr-1" />,
-    subClass: 'text-green-600',
-  },
-  {
-    label: 'Refined Oil',
-    value: '1331.4 MT',
-    icon: <BarChart3Icon size={24} className="text-green-600" />,
-    bg: 'bg-green-100',
-    sub: '95.5% yield',
-    subIcon: <TrendingUpIcon size={14} className="mr-1" />,
-    subClass: 'text-green-600',
-  },
-  {
-    label: 'PFAD',
-    value: '54.2 MT',
-    icon: <ScaleIcon size={24} className="text-amber-600" />,
-    bg: 'bg-amber-100',
-    sub: '3.9% of total',
-    subClass: 'text-gray-600',
-  },
-  {
-    label: 'Olein Production',
-    value: '850.5 MT',
-    icon: <BarChart3Icon size={24} className="text-purple-600" />,
-    bg: 'bg-purple-100',
-    sub: '85% of fractionation feed',
-    subClass: 'text-gray-600',
-  },
-];
+// Colors for charts
+const COLORS = ['#2563eb', '#22c55e', '#f59e42', '#a855f7', '#eab308', '#ef4444', '#0ea5e9'];
 
-const initialSubmissions: Submission[] = [
-  {
-    id: 1,
-    type: 'Refinery Form',
-    time: '09:30 AM',
-    user: 'John Doe',
-    data: { feed: '45.2 MT', output: '43.1 MT', yield: '95.4%' },
-  },
-  {
-    id: 2,
-    type: 'Stock Form',
-    time: '10:15 AM',
-    user: 'Jane Smith',
-    data: { cpo: '1250 kg', rbd: '1100 kg' },
-  },
-];
-
-const initialDailyFeed: DailyFeed[] = [
-  { date: '2025-05-25', feed: 100 },
-  { date: '2025-05-26', feed: 120 },
-  { date: '2025-05-27', feed: 110 },
-];
-
-const initialProductDist: ProductDist[] = [
-  { label: 'Olein', value: 850 },
-  { label: 'Stearin', value: 150 },
-];
-
-const initialYieldHist: YieldHist[] = [
-  { range: '88-90', count: 1 },
-  { range: '90-92', count: 3 },
-  { range: '92-94', count: 7 },
-  { range: '94-96', count: 12 },
-  { range: '96-98', count: 6 },
-  { range: '98-100', count: 2 },
-];
-
-const initialCpoRefinedOilTrend: CpoRefinedOilTrend[] = [
-  { date: '2025-05-25', cpo: 100, refinedOil: 90 },
-  { date: '2025-05-26', cpo: 120, refinedOil: 110 },
-];
-
-const initialDeodorizerFractionationTrend: DeodorizerFractionationTrend[] = [
-  { date: '2025-05-25', deodorizerPower: 10, fractionationPower: 8 },
-  { date: '2025-05-26', deodorizerPower: 12, fractionationPower: 9 },
-];
-
-const initialChemicalUsageTrend: ChemicalUsageTrend[] = [
-  { date: '2025-05-25', bleachingEarth: 5, phosphoricAcid: 2, citricAcid: 1 },
-  { date: '2025-05-26', bleachingEarth: 6, phosphoricAcid: 2.5, citricAcid: 1.2 },
-];
-
-const initialTanksTrend: TanksTrend[] = [
-  { date: '2025-05-25', tanks: 10 },
-  { date: '2025-05-26', tanks: 11 },
-];
-
-// Function to generate dynamic data with realistic variations
+// Generate dynamic data with variation
 const generateDynamicData = <T extends object>(data: T[], variation: number = 0.1): T[] => {
-  return data.map(item => ({
+  return data.map((item) => ({
     ...item,
     value: 'value' in item ? Math.max(0, (item as any).value * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    count: 'count' in item ? Math.max(0, Math.round((item as any).count * (1 + (Math.random() * variation - variation / 2)))) : undefined,
-    cpo: 'cpo' in item ? Math.max(0, (item as any).cpo * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    refinedOil: 'refinedOil' in item ? Math.max(0, (item as any).refinedOil * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    deodorizerPower: 'deodorizerPower' in item ? Math.max(0, (item as any).deodorizerPower * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    fractionationPower: 'fractionationPower' in item ? Math.max(0, (item as any).fractionationPower * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    bleachingEarth: 'bleachingEarth' in item ? Math.max(0, (item as any).bleachingEarth * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    phosphoricAcid: 'phosphoricAcid' in item ? Math.max(0, (item as any).phosphoricAcid * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    citricAcid: 'citricAcid' in item ? Math.max(0, (item as any).citricAcid * (1 + (Math.random() * variation - variation / 2))) : undefined,
-    tanks: 'tanks' in item ? Math.max(0, Math.round((item as any).tanks * (1 + (Math.random() * variation - variation / 2)))) : undefined,
+    orders: 'orders' in item ? Math.max(0, Math.round((item as any).orders * (1 + (Math.random() * variation - variation / 2)))) : undefined,
+    metricTons: 'metricTons' in item ? Math.max(0, (item as any).metricTons * (1 + (Math.random() * variation - variation / 2))) : undefined,
+    pending: 'pending' in item ? Math.max(0, Math.round((item as any).pending * (1 + (Math.random() * variation - variation / 2)))) : undefined,
+    delivered: 'delivered' in item ? Math.max(0, Math.round((item as any).delivered * (1 + (Math.random() * variation - variation / 2)))) : undefined,
   }));
 };
 
 const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState<Stat[]>(initialStats);
-  const [submissions, setSubmissions] = useState<Submission[]>(initialSubmissions);
-  const [dailyFeed, setDailyFeed] = useState<DailyFeed[]>(initialDailyFeed);
-  const [productDist, setProductDist] = useState<ProductDist[]>(initialProductDist);
-  const [yieldHist, setYieldHist] = useState<YieldHist[]>(initialYieldHist);
-  const [cpoRefinedOilTrend, setCpoRefinedOilTrend] = useState<CpoRefinedOilTrend[]>(initialCpoRefinedOilTrend);
-  const [deodorizerFractionationTrend, setDeodorizerFractionationTrend] = useState<DeodorizerFractionationTrend[]>(initialDeodorizerFractionationTrend);
-  const [chemicalUsageTrend, setChemicalUsageTrend] = useState<ChemicalUsageTrend[]>(initialChemicalUsageTrend);
-  const [tanksTrend, setTanksTrend] = useState<TanksTrend[]>(initialTanksTrend);
+  const [orders, setOrders] = useState<DispatchOrder[]>([]);
+  const [stats, setStats] = useState<Stat[]>([]);
+  const [dailyDispatch, setDailyDispatch] = useState<DailyDispatch[]>([]);
+  const [productDist, setProductDist] = useState<ProductDistribution[]>([]);
+  const [customerDist, setCustomerDist] = useState<CustomerDistribution[]>([]);
+  const [statusTrend, setStatusTrend] = useState<StatusTrend[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
 
-  const colors = ['#2563eb', '#22c55e', '#f59e42', '#a855f7', '#eab308', '#ef4444', '#0ea5e9', '#6366f1'];
-
-  // Periodic data update without alert
-  const updateDataPeriodically = () => {
-    setDailyFeed(generateDynamicData(dailyFeed));
-    setProductDist(generateDynamicData(productDist));
-    setYieldHist(generateDynamicData(yieldHist));
-    setCpoRefinedOilTrend(generateDynamicData(cpoRefinedOilTrend));
-    setDeodorizerFractionationTrend(generateDynamicData(deodorizerFractionationTrend));
-    setChemicalUsageTrend(generateDynamicData(chemicalUsageTrend));
-    setTanksTrend(generateDynamicData(tanksTrend));
+  // Parse Excel serial date
+  const parseExcelDate = (serial: number): Date => {
+    if (isNaN(serial)) return new Date();
+    return new Date((serial - 25569) * 86400 * 1000);
   };
 
+  // Load and process Excel data
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 1000);
+    const csvData = loadFileData('AIL_DISPATCH 26-May-2025.xlsx');
+    Papa.parse<RawDispatchRow>(csvData, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim().replace(/\s+/g, '').replace(/^"|"$/g, ''),
+      transform: (value) => (value.trim() === '' ? null : value.trim()),
+      complete: (results) => {
+        const parsedOrders: DispatchOrder[] = results.data
+          .filter((row) => row.DATE && row.MT && !isNaN(parseFloat(row.MT)))
+          .map((row) => ({
+            id: row.INVOICENO || Date.now().toString(),
+            customerName: row['CUSTOMER&DEPOTNAME'] || 'Unknown',
+            date: parseExcelDate(parseFloat(row.DATE!)),
+            soNumber: row.SONO || 'N/A',
+            status: row.TRUCKstatus || 'Pending',
+            quantities: {
+              '20L': parseFloat(row['20L'] || '0'),
+              '10L': parseFloat(row['10L'] || '0'),
+              '5L': parseFloat(row['5L'] || '0'),
+              '3L': parseFloat(row['3L'] || '0'),
+              '1L': parseFloat(row['1L'] || '0'),
+              '250ML': parseFloat(row['250ML'] || '0'),
+              '500ML': parseFloat(row['500ML'] || '0'),
+            },
+            metricTons: parseFloat(row.MT!),
+          }));
 
-    const interval = setInterval(updateDataPeriodically, 10000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // Calculate stats
+        const pendingOrders = parsedOrders.filter((o) => o.status === 'Delivered').length;
+        const totalMT = parsedOrders.reduce((sum, o) => sum + o.metricTons, 0);
+        const productTotals = Object.keys(parsedOrders[0]?.quantities || {}).reduce((acc, key) => {
+          acc[key as keyof DispatchOrder['quantities']] = parsedOrders.reduce((sum, o) => sum + o.quantities[key as keyof DispatchOrder['quantities']], 0);
+          return acc;
+        }, {} as any);
+        const topProduct = Object.entries(productTotals).reduce((a, b) => (a[1] > b[1] ? a : b), ['Unknown', 0])[0];
+        const pendingRatio = ((pendingOrders / parsedOrders.length) * 100).toFixed(1);
+
+        setStats([
+          {
+            label: 'Pending Orders',
+            value: `${pendingOrders}`,
+            icon: parseInt(FaTruck),
+            bg: 'bg-blue-100',
+            sub: `${parsedOrders.length - pendingOrders} delivered`,
+            subClassName: 'text-green-600',
+          },
+          {
+            label: 'Total MT',
+            value: `${totalMT.toFixed(1)} MT`,
+            icon: parseInt(FaWeightHanging),
+            bg: 'bg-green-100',
+            sub: `${(totalMT / parsedOrders.length).toFixed(1)} MT/order`,
+            subClassName: 'text-gray-600',
+          },
+          {
+            label: 'Top Product',
+            value: topProduct,
+            icon: parseInt(FaChartBar),
+            bg: 'bg-purple-100',
+            sub: `${productTotals[topProduct].toFixed(1)} units`,
+            subClassName: 'text-gray-600',
+          },
+          {
+            label: 'Pending Ratio',
+            value: `${pendingRatio}%`,
+            icon: parseInt(FaPercentage),
+            bg: 'bg-amber-100',
+            sub: 'Of total orders',
+            subClassName: 'text-gray-600',
+          },
+        ]);
+
+        // Daily dispatch
+        const daily = parsedOrders.reduce((acc, o) => {
+          const dateStr = o.date.toISOString().split('T')[0];
+          acc[dateStr] = (acc[dateStr] || 0) + o.metricTons;
+          return acc;
+        }, {} as Record<string, number>);
+        setDailyDispatch(
+          Object.entries(daily).map(([date, metricTons]) => ({ date, metricTons: parseFloat(metricTons.toFixed(1)) }))
+        );
+
+        // Product distribution
+        setProductDist(
+          Object.entries(productTotals).map(([name, value]) => ({ name, value: parseFloat(value.toFixed(1)) }))
+        );
+
+        // Customer distribution
+        const customerCounts = parsedOrders.reduce((acc, o) => {
+          acc[o.customerName] = (acc[o.customerName] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        setCustomerDist(
+          Object.entries(customerCounts)
+            .map(([customer, orders]) => ({ customer, orders }))
+            .sort((a, b) => b.orders - a.orders)
+            .slice(0, 5)
+        );
+
+        // Status trend
+        const statusByDate = parsedOrders.reduce((acc, o) => {
+          const dateStr = o.date.toISOString().split('T')[0];
+          if (!acc[dateStr]) acc[dateStr] = { pending: 0, delivered: 0 };
+          acc[dateStr][o.status === 'Delivered' ? 'delivered' : 'pending']++;
+          return acc;
+        }, {} as Record<string, { pending: number; delivered: number }>);
+        setStatusTrend(
+          Object.entries(statusByDate).map(([date, counts]) => ({
+            date,
+            pending: counts.pending,
+            delivered: counts.delivered,
+          }))
+        );
+
+        setOrders(parsedOrders);
+        setLoading(false);
+      },
+      error: () => {
+        setError('Failed to load dispatch data');
+        setLoading(false);
+      },
+    });
   }, []);
 
+  // Periodic data update
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDailyDispatch(generateDynamicData(dailyDispatch));
+      setProductDist(generateDynamicData(productDist));
+      setCustomerDist(generateDynamicData(customerDist));
+      setStatusTrend(generateDynamicData(statusTrend));
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [dailyDispatch, productDist, customerDist, statusTrend]);
+
   const handleDateChange = debounce((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = e.target.value;
-    setDate(newDate);
-    // Simulate realistic data update for date change
-    setDailyFeed(generateDynamicData(initialDailyFeed));
-    setProductDist(generateDynamicData(initialProductDist));
-    setYieldHist(generateDynamicData(initialYieldHist));
-    setCpoRefinedOilTrend(generateDynamicData(initialCpoRefinedOilTrend));
-    setDeodorizerFractionationTrend(generateDynamicData(initialDeodorizerFractionationTrend));
-    setChemicalUsageTrend(generateDynamicData(initialChemicalUsageTrend));
-    setTanksTrend(generateDynamicData(initialTanksTrend));
-    setSubmissions(newDate === new Date().toISOString().split('T')[0] ? initialSubmissions : []);
+    setDate(e.target.value);
+    // Simulate data update
+    setDailyDispatch(generateDynamicData(dailyDispatch));
+    setProductDist(generateDynamicData(productDist));
+    setCustomerDist(generateDynamicData(customerDist));
+    setStatusTrend(generateDynamicData(statusTrend));
   }, 500);
 
   const setDaysBack = (days: number) => {
@@ -245,24 +271,23 @@ const Dashboard: React.FC = () => {
     d.setDate(d.getDate() - days);
     const newDate = d.toISOString().split('T')[0];
     setDate(newDate);
-    // Update data realistically for date change
-    setDailyFeed(generateDynamicData(initialDailyFeed));
-    setProductDist(generateDynamicData(initialProductDist));
-    setYieldHist(generateDynamicData(initialYieldHist));
-    setCpoRefinedOilTrend(generateDynamicData(initialCpoRefinedOilTrend));
-    setDeodorizerFractionationTrend(generateDynamicData(initialDeodorizerFractionationTrend));
-    setChemicalUsageTrend(generateDynamicData(initialChemicalUsageTrend));
-    setTanksTrend(generateDynamicData(initialTanksTrend));
-    setSubmissions(newDate === new Date().toISOString().split('T')[0] ? initialSubmissions : []);
+    setDailyDispatch(generateDynamicData(dailyDispatch));
+    setProductDist(generateDynamicData(productDist));
+    setCustomerDist(generateDynamicData(customerDist));
+    setStatusTrend(generateDynamicData(statusTrend));
   };
 
+  const filteredOrders = orders.filter((o) => o.date.toISOString().split('T')[0] <= date);
+
+  if (error) return <div className="text-center text-red-500 p-10">{error}</div>;
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen space-y-6">
-      {/* Date Filter */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="container mx-auto p-4 bg-gray-50 min-h-screen space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
-          <p className="text-gray-500 text-sm">Monitor refinery performance and submissions</p>
+          <h2 className="text-2xl font-bold text-gray-800">Dispatch Dashboard</h2>
+          <p className="text-gray-600 text-sm">Monitor oil dispatch performance and orders</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -270,22 +295,22 @@ const Dashboard: React.FC = () => {
             value={date}
             onChange={handleDateChange}
             max={new Date().toISOString().split('T')[0]}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-[#2C5B48] focus:border-[#2C5B48] transition"
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-600 focus:border-blue-600"
           />
           <button
-            className="text-xs px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 transition"
+            className="px-3 py-2 text-sm rounded bg-gray-100 hover:bg-gray-200"
             onClick={() => setDaysBack(0)}
           >
             Today
           </button>
           <button
-            className="text-xs px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 transition"
+            className="px-3 py-2 text-sm rounded bg-gray-100 hover:bg-gray-200"
             onClick={() => setDaysBack(1)}
           >
             1d back
           </button>
           <button
-            className="text-xs px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 transition"
+            className="px-3 py-2 text-sm rounded bg-gray-100 hover:bg-gray-200"
             onClick={() => setDaysBack(7)}
           >
             7d back
@@ -293,53 +318,63 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
-          <div className="col-span-full flex justify-center items-center py-4">
-            <Loader2 className="animate-spin text-[#2C5B48]" size={24} />
+          <div className="col-span-full flex justify-center py-4">
+            <FaSpinner className="animate-spin text-blue-600" size={24} />
           </div>
         ) : (
-          stats.map(stat => (
-            <Card key={stat.label} className="flex items-center animate-fade-in hover:shadow-xl transition-shadow">
-              <div className={`p-3 rounded-full ${stat.bg} mr-4 animate-pulse-slow`}>{stat.icon}</div>
+          stats.map((stat) => (
+            <Card key={stat.label} className="flex items-center">
+              <div className={`p-3 rounded-full ${stat.bg} mr-4}`}>
+                {stat.icon === parseInt(FaTruck) && <FaTruck className="text-blue-600" size={24} />}
+                {stat.icon === parseInt(FaWeightHanging) && <FaWeightHanging className="text-green-600" size={24} />}
+                {stat.icon === parseInt(FaChartBar) && <FaChartBar className="text-purple-600" size={24} />}
+                {stat.icon === parseInt(FaPercentage) && <FaPercentage className="text-amber-600" size={24} />}
+              </div>
               <div>
-                <p className="text-sm text-gray-500">{stat.label}</p>
-                <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
-                <p className={`text-xs flex items-center ${stat.subClass}`}>
-                  {stat.subIcon}
-                  {stat.sub}
-                </p>
+                <p className="text-sm text-gray-600">{stat.label}</p>
+                <h3 className="text-2xl font-bold text-gray-800">{stat.value}</h3>
+                <p className={`text-xs ${stat.subClassName}`}>{stat.sub}</p>
               </div>
             </Card>
           ))
         )}
       </div>
 
-      {/* Today's Activity */}
+      {/* Recent Submissions & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <Card title="Today's Submissions">
+          <Card title="Recent Dispatch Orders">
             {loading ? (
-              <div className="flex justify-center items-center py-4">
-                <Loader2 className="animate-spin text-[#2C5B48]" size={24} />
+              <div className="flex justify-center py-4">
+                <FaSpinner className="animate-spin text-blue-600" size={24} />
               </div>
-            ) : submissions.length === 0 ? (
-              <div className="text-gray-400">No submissions for this date.</div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="text-gray-600">No orders for this date.</div>
             ) : (
               <ul>
-                {submissions.map(sub => (
-                  <li key={sub.id} className="p-3 border rounded-md bg-green-50 text-green-900 mb-2 animate-fade-in hover:bg-green-100 transition">
-                    <strong>{sub.type.toUpperCase()}:</strong> {sub.type}{' '}
-                    <em className="ml-2 text-xs text-gray-500">({sub.time})</em>
+                {filteredOrders.slice(0, 5).map((order) => (
+                  <li
+                    key={order.id}
+                    className="p-3 border rounded-lg bg-blue-50 text-blue-900 mb-2 hover:bg-blue-100"
+                  >
+                    <strong>{order.soNumber}</strong> - {order.customerName}
+                    <em className="ml-2 text-xs text-gray-600">
+                      ({order.date.toLocaleDateString('en-GB')})
+                    </em>
                     <div className="text-xs text-gray-700 mt-1">
-                      {Object.entries(sub.data).map(([k, v]) => (
-                        <span key={k} className="mr-3">
-                          {k}: <span className="font-semibold">{v}</span>
-                        </span>
-                      ))}
+                      {Object.entries(order.quantities)
+                        .filter(([_, v]) => v > 0)
+                        .map(([k, v]) => (
+                          <span key={k} className="mr-3">
+                            {k}: <span className="font-semibold">{v}</span>
+                          </span>
+                        ))}
+                      MT: <span className="font-semibold">{order.metricTons.toFixed(1)}</span>
                     </div>
-                    <span className="text-xs text-gray-400">By {sub.user}</span>
+                    <span className="text-xs text-gray-600">Status: {order.status}</span>
                   </li>
                 ))}
               </ul>
@@ -350,297 +385,179 @@ const Dashboard: React.FC = () => {
           <Card title="Quick Actions" className="relative">
             <div className="space-y-4">
               {[
-                { to: '/refinery-form', title: 'New Refinery Entry', desc: 'Record today’s refinery data' },
-                { to: '/stocks', title: 'Update Stock Levels', desc: 'Update current stock readings' },
-                { to: '/chemicals', title: 'Chemical Consumption', desc: 'Record chemical usage data' },
-                { to: '/fractionation-form', title: 'Fractionation Entry', desc: 'Record fractionation process data' },
-                { to: '/mtd-summary', title: 'MTD Summary', desc: 'View month-to-date summary' },
-              ].map(item => (
+                { to: '/chemicals', title: 'Add Order', desc: 'Enter new dispatch order' },
+                { to: '/reports', title: 'View Reports', desc: 'Generate PDF reports' },
+                { to: '/status', title: 'Update Status', desc: 'Mark orders as delivered' },
+              ].map((item) => (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className="block w-full p-4 rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group relative overflow-hidden"
-                  aria-label={`Navigate to ${item.title}`}
+                  className="block p-4 rounded-lg border border-gray-200 bg-white hover:shadow-lg hover:-translate-y-1 transition-all"
                 >
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-[#2C5B48] to-[#22c55e] flex items-center justify-center text-white mr-4 group-hover:scale-110 transition-transform duration-200">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center mr-4">
                       <span className="text-lg font-bold">{item.title[0]}</span>
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900">{item.title}</h4>
-                      <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
+                      <h4 className="font-medium text-gray-800">{item.title}</h4>
+                      <p className="text-sm text-gray-600">{item.desc}</p>
                     </div>
                   </div>
-                  <span className="absolute left-0 bottom-0 w-0 h-1 bg-gradient-to-r from-[#2C5B48] to-[#22c55e] transition-all duration-300 group-hover:w-full"></span>
                 </Link>
               ))}
             </div>
-            <Link
-              to="/refinery-form"
-              className="fixed lg:absolute right-6 bottom-6 z-20"
-              aria-label="Add new entry"
-            >
-              <span className="relative flex h-12 w-12">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-40"></span>
-                <span className="relative inline-flex rounded-full h-12 w-12 bg-gradient-to-br from-[#2C5B48] to-[#22c55e] items-center justify-center shadow-lg hover:scale-110 transition-transform duration-200">
-                  <PlusIcon size={28} className="text-white" />
-                </span>
-              </span>
+            <Link to="/chemicals" className="absolute right-6 bottom-6">
+              <div className="relative flex h-12 w-12">
+                <div className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-40"></div>
+                <div className="relative inline-flex rounded-full h-12 w-12 bg-blue-600 items-center justify-center text-white">
+                  <FaPlus size={24} />
+                </div>
+              </div>
             </Link>
           </Card>
         </div>
       </div>
 
-      {/* Performance Charts */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Feed Trend Area Chart */}
-        <Card title="Feed Trend (MT)">
+        {/* Daily Dispatch MT */}
+        <Card title="Daily Dispatch (MT)">
           {loading ? (
-            <div className="flex justify-center items-center py-4">
-              <Loader2 className="animate-spin text-[#2C5B48]" size={24} />
+            <div className="flex justify-center py-4">
+              <FaSpinner className="animate-spin text-blue-600" size={24} />
             </div>
-          ) : dailyFeed.length === 0 ? (
-            <div className="text-center text-gray-400 py-4">No feed data available for selected date.</div>
+          ) : dailyDispatch.length === 0 ? (
+            <div className="text-gray-600 text-center py-4">No dispatch data available.</div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={dailyFeed}>
+              <AreaChart data={dailyDispatch}>
                 <defs>
-                  <linearGradient id="feedGradient" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="dispatchGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8} />
                     <stop offset="95%" stopColor="#22c55e" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#374151' }} label={{ value: 'Date', position: 'insideBottom', offset: -5, fill: '#374151' }} />
-                <YAxis tick={{ fontSize: 12, fill: '#374151' }} label={{ value: 'Feed (MT)', angle: -90, position: 'insideLeft', offset: 10, fill: '#374151' }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  formatter={(value: number) => `${value.toFixed(1)} MT`}
-                />
-                <Legend verticalAlign="top" height={36} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} label={{ value: 'MT', angle: -90, position: 'insideLeft' }} />
+                <Tooltip formatter={(value: number) => `${value.toFixed(1)} MT`} />
+                <Legend />
                 <Area
                   type="monotone"
-                  dataKey="feed"
+                  dataKey="metricTons"
                   stroke="#2563eb"
-                  fill="url(#feedGradient)"
-                  fillOpacity={1}
-                  animationDuration={1200}
-                  isAnimationActive={true}
+                  fill="url(#dispatchGradient)"
+                  name="Dispatched MT"
                 />
               </AreaChart>
             </ResponsiveContainer>
           )}
         </Card>
 
-        {/* Product Distribution Pie Chart */}
+        {/* Product Distribution */}
         <Card title="Product Distribution">
           {loading ? (
-            <div className="flex justify-center items-center py-4">
-              <Loader2 className="animate-spin text-[#2C5B48]" size={24} />
+            <div className="flex justify-center py-4">
+              <FaSpinner className="animate-spin text-blue-600" size={24} />
             </div>
           ) : productDist.length === 0 ? (
-            <div className="text-center text-gray-400 py-4">No product distribution data for selected date.</div>
+            <div className="text-gray-600 text-center py-4">No product data available.</div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie
                   data={productDist}
                   dataKey="value"
-                  nameKey="label"
+                  nameKey="name"
                   cx="50%"
                   cy="50%"
                   outerRadius={90}
                   innerRadius={50}
-                  onClick={(_, index) => {
-                    const segment = productDist[index];
-                    if (segment) {
-                      window.alert(`Selected: ${segment.label} (${segment.value.toFixed(1)} MT)`);
-                    }
-                  }}
-                  label={({ name, value }) => `${name}: ${value.toFixed(1)} MT`}
-                  animationDuration={1000}
-                  isAnimationActive={true}
+                  label={({ name, value }) => `${name}: ${value.toFixed(1)}`}
                 >
                   {productDist.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  formatter={(value: number) => `${value.toFixed(1)} MT`}
-                />
+                <Tooltip formatter={(value: number) => `${value.toFixed(1)} units`} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
           )}
         </Card>
 
-        {/* Yield Histogram Bar Chart */}
-        <Card title="Yield Histogram">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={yieldHist} margin={{ top: 20, right: 30, left: 0, bottom: 20 }} barCategoryGap={20}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis
-                dataKey="range"
-                tick={{ fontSize: 13, fill: '#374151' }}
-                label={{ value: 'Yield Range (%)', position: 'insideBottom', offset: -8, fill: '#374151' }}
-              />
-              <YAxis
-                tick={{ fontSize: 13, fill: '#374151' }}
-                label={{ value: 'Count', angle: -90, position: 'insideLeft', offset: 10, fill: '#374151' }}
-                allowDecimals={false}
-              />
-              <Tooltip
-                contentStyle={{ borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                labelStyle={{ fontWeight: 'bold', color: '#2C5B48' }}
-                formatter={(value: number) => [`${value} entries`, 'Count']}
-              />
-              <Legend />
-              <Bar
-                dataKey="count"
-                radius={[12, 12, 0, 0]}
-                isAnimationActive={true}
-                animationDuration={1200}
-              >
-                {yieldHist.map((_, idx) => (
-                  <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} />
-                ))}
-                <LabelList
-                  dataKey="count"
-                  position="top"
-                  fill="#2563eb"
-                  fontSize={16}
-                  fontWeight={700}
-                  formatter={(value: number) => (value > 0 ? value : '')}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="text-xs text-gray-500 mt-2 text-center">
-            <span className="inline-block w-3 h-3 rounded-full mr-1 align-middle" style={{ background: colors[0] }} /> Lower yield
-            <span className="mx-2">→</span>
-            <span className="inline-block w-3 h-3 rounded-full mr-1 align-middle" style={{ background: colors[colors.length - 1] }} /> Higher yield
-          </div>
-        </Card>
-      </div>
-
-      {/* Real Trends Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* CPO & Refined Oil Trend */}
-        <Card title="CPO & Refined Oil Trend">
-          {cpoRefinedOilTrend.length === 0 ? (
-            <div className="text-center text-gray-400 py-4">No trend data available.</div>
+        {/* Customer Distribution */}
+        <Card title="Top Customers (Orders)">
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <FaSpinner className="animate-spin text-blue-600" size={24} />
+            </div>
+          ) : customerDist.length === 0 ? (
+            <div className="text-gray-600 text-center py-4">No customer data available.</div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={cpoRefinedOilTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" label={{ value: 'Date', position: 'insideBottom', offset: -5, fill: '#374151' }} />
-                <YAxis label={{ value: 'Quantity (MT)', angle: -90, position: 'insideLeft', offset: 10, fill: '#374151' }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  formatter={(value: number) => value.toFixed(1)}
-                />
+              <BarChart data={customerDist}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <XAxis dataKey="customer" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} label={{ value: 'Orders', angle: -90, position: 'insideLeft' }} />
+                <Tooltip formatter={(value: number) => `${value} orders`} />
                 <Legend />
-                <Line type="monotone" dataKey="cpo" stroke="#2563eb" name="CPO" strokeWidth={2} />
-                <Line type="monotone" dataKey="refinedOil" stroke="#22c55e" name="Refined Oil" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        {/* Deodorizer & Fractionation Power Trend */}
-        <Card title="Deodorizer & Fractionation Power Trend">
-          {deodorizerFractionationTrend.length === 0 ? (
-            <div className="text-center text-gray-400 py-4">No trend data available.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={deodorizerFractionationTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" label={{ value: 'Date', position: 'insideBottom', offset: -5, fill: '#374151' }} />
-                <YAxis label={{ value: 'Power (MT)', angle: -90, position: 'insideLeft', offset: 10, fill: '#374151' }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  formatter={(value: number) => value.toFixed(1)}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="deodorizerPower" stroke="#f59e42" name="Deodorizer Power" strokeWidth={2} />
-                <Line type="monotone" dataKey="fractionationPower" stroke="#a855f7" name="Fractionation Power" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        {/* Chemical Usage Trend */}
-        <Card title="Chemical Usage Trend">
-          {chemicalUsageTrend.length === 0 ? (
-            <div className="text-center text-gray-400 py-4">No trend data available.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={chemicalUsageTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" label={{ value: 'Date', position: 'insideBottom', offset: -5, fill: '#374151' }} />
-                <YAxis label={{ value: 'Quantity (kg)', angle: -90, position: 'insideLeft', offset: 10, fill: '#374151' }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  formatter={(value: number) => value.toFixed(1)}
-                />
-                <Legend />
-                <Bar dataKey="bleachingEarth" stackId="a" fill="#f59e42" name="Bleaching Earth" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="phosphoricAcid" stackId="a" fill="#2563eb" name="Phosphoric Acid" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="citricAcid" stackId="a" fill="#22c55e" name="Citric Acid" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="orders" fill="#2563eb" name="Orders" />
               </BarChart>
             </ResponsiveContainer>
           )}
         </Card>
 
-        {/* Tanks Trend */}
-        <Card title="Tanks Trend">
-          {tanksTrend.length === 0 ? (
-            <div className="text-center text-gray-400 py-4">No trend data available.</div>
+        {/* Status Trend */}
+        <Card title="Order Status Trend">
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <FaSpinner className="animate-spin text-blue-600" size={24} />
+            </div>
+          ) : statusTrend.length === 0 ? (
+            <div className="text-gray-600 text-center py-4">No status data available.</div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={tanksTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" label={{ value: 'Date', position: 'insideBottom', offset: -5, fill: '#374151' }} />
-                <YAxis label={{ value: 'Tanks Count', angle: -90, position: 'insideLeft', offset: 10, fill: '#374151' }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  formatter={(value: number) => value.toFixed(0)}
-                />
+              <LineChart data={statusTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} label={{ value: 'Count', angle: -90, position: 'insideLeft' }} />
+                <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="tanks" stroke="#eab308" name="Tanks" strokeWidth={2} />
+                <Line type="monotone" dataKey="pending" stroke="#f59e42" name="Pending" />
+                <Line type="monotone" dataKey="delivered" stroke="#22c55e" name="Delivered" />
               </LineChart>
             </ResponsiveContainer>
           )}
         </Card>
       </div>
 
-      {/* Recent Submissions Table */}
-      <Card title="Recent Submissions">
+      {/* Recent Orders Table */}
+      <Card title="Recent Orders">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-100">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feed (MT)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Output (MT)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yield %</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">S.O. No</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">MT</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Status</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {submissions.length === 0 ? (
+              {filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-gray-400 py-4">No data for this date.</td>
+                  <td colSpan={5} className="text-center text-gray-600 py-4">No orders for this date.</td>
                 </tr>
               ) : (
-                submissions.map(sub => (
-                  <tr key={sub.id} className="animate-fade-in hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sub.type}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sub.data.feed || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sub.data.output || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sub.data.yield || '-'}</td>
+                filteredOrders.slice(0, 5).map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm text-gray-800">{order.date.toLocaleDateString('en-GB')}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800">{order.soNumber}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800">{order.customerName}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800">{order.metricTons.toFixed(1)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800">{order.status}</td>
                   </tr>
                 ))
               )}

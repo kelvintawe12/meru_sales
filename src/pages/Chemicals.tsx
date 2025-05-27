@@ -69,9 +69,15 @@ const Chemicals: React.FC = () => {
     return new Date((serial - 25569) * 86400 * 1000);
   };
 
+  // Mock implementation of loadFileData; replace with actual file loading logic as needed
+  const loadFileData = (): string => {
+    // TODO: Implement actual file loading logic here (e.g., fetch from server or local file)
+    return '';
+  };
+  
   // Load data from Excel
   useEffect(() => {
-    const csvData = loadFileData('AIL_DISPATCH 26-May-2025.xlsx');
+    const csvData = loadFileData();
     Papa.parse<RawDispatchRow>(csvData, {
       header: true,
       skipEmptyLines: true,
@@ -182,7 +188,8 @@ const Chemicals: React.FC = () => {
     doc.text(`As on: ${reportDate.toLocaleDateString('en-GB')}`, 20, 30);
     doc.text('Meru Sales Ltd.', 20, 40);
 
-    doc.autoTable({
+    // @ts-ignore
+    doc.autoTable(doc, {
       startY: 50,
       head: [['Customer', 'Date', 'S.O.', '20L', '10L', '5L', '3L', '1L', '250ML', '500ML', 'MT']],
       body: filteredOrders.map((order) => [
@@ -248,7 +255,9 @@ const Chemicals: React.FC = () => {
               <span className="mr-2 text-gray-600">As on:</span>
               <DatePicker
                 selected={reportDate}
-                onChange={(date: Date) => setReportDate(date)}
+                onChange={(date: Date | null) => {
+                  if (date) setReportDate(date);
+                }}
                 dateFormat="dd/MM/yyyy"
                 className="border rounded p-2"
               />
@@ -445,7 +454,9 @@ const Chemicals: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <DatePicker
                   selected={newOrder.date}
-                  onChange={(date: Date) => setNewOrder({ ...newOrder, date })}
+                  onChange={(date: Date | null) => {
+                    if (date) setNewOrder({ ...newOrder, date });
+                  }}
                   dateFormat="dd/MM/yyyy"
                   className="w-full p-2 border rounded"
                 />

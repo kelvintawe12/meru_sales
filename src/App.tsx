@@ -4,16 +4,16 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import  Dashboard  from './pages/Dashboard';
-import { RefineryForm } from './pages/RefineryForm';
+import  VehicleTrackingForm from './pages/RefineryForm';
 import  FractionationForm  from './pages/FractionationForm';
 import { MTDSummary } from './pages/MTDSummary';
-import { Help } from './pages/Help';
+import Help from './pages/Help';
 import { Settings } from './pages/Settings';
 import { Profile } from './pages/Profile';
 import  Chemicals  from './pages/Chemicals';
 import { Stocks } from './pages/Stocks';
 import  Reports  from './pages/Reports';
-import { Submissions } from './pages/Submissions';
+import  Submissions  from './pages/Submissions';
 import { ToasterProvider } from './components/ui/Toaster';
 import { MeruLoader } from './components/ui/MeruLoader';
 const Dispatch = React.lazy(() => import('./pages/Dispatch'));
@@ -35,8 +35,7 @@ const pageTitles: Record<string, string> = {
   '/dispatch-receipt': 'Dispatch Receipt',
 };
 
-function usePageTitle() {
-  const location = useLocation();
+function usePageTitle(location: ReturnType<typeof useLocation>) {
   useEffect(() => {
     document.title = pageTitles[location.pathname] || 'Meru Refinery';
   }, [location.pathname]);
@@ -55,8 +54,8 @@ function NotFound() {
 type SidebarSize = 'closed' | 'compact' | 'full';
 
 export function App() {
-  usePageTitle();
   const location = useLocation();
+  usePageTitle(location);
 
   // Show loader only on first load or sign out
   const [showLoader, setShowLoader] = useState(true);
@@ -107,7 +106,7 @@ export function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/refinery-form" element={<RefineryForm />} />
+              <Route path="/refinery-form" element={<VehicleTrackingForm />} />
               <Route path="/fractionation-form" element={<FractionationForm />} />
               <Route path="/chemicals" element={<Chemicals />} />
               <Route path="/stocks" element={<Stocks />} />
