@@ -14,6 +14,7 @@ import  Chemicals  from './pages/Chemicals';
 import { Stocks } from './pages/Stocks';
 import  Reports  from './pages/Reports';
 import  Submissions  from './pages/Submissions';
+import Status from './pages/Status';
 import { ToasterProvider } from './components/ui/Toaster';
 import { MeruLoader } from './components/ui/MeruLoader';
 const Dispatch = React.lazy(() => import('./pages/Dispatch'));
@@ -116,6 +117,7 @@ export function App() {
               <Route path="/help" element={<Help />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/status" element={<React.Suspense fallback={<div>Loading...</div>}><Status /></React.Suspense>} />
               <Route
               path="/dispatch"
               element={

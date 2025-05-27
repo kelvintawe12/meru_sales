@@ -454,6 +454,8 @@ const Dashboard: React.FC = () => {
                 { to: '/chemicals', title: 'Add Order', desc: 'Enter new dispatch order' },
                 { to: '/reports', title: 'View Reports', desc: 'Generate PDF reports' },
                 { to: '/status', title: 'Update Status', desc: 'Mark orders as delivered' },
+                { to: '/dispatch', title: 'Dispatch', desc: 'Manage dispatch reports' },
+                { to: '/dispatch-receipt', title: 'Dispatch Receipt', desc: 'Generate dispatch receipts' },
               ].map((item) => (
                 <Link
                   key={item.to}
