@@ -223,7 +223,10 @@ const Dashboard: React.FC = () => {
           acc[key as keyof DispatchOrder['quantities']] = parsedOrders.reduce((sum, o) => sum + o.quantities[key as keyof DispatchOrder['quantities']], 0);
           return acc;
         }, {} as any);
-        const topProduct = Object.entries(productTotals).reduce((a, b) => (a[1] > b[1] ? a : b), ['Unknown', 0])[0];
+        const topProduct = (Object.entries(productTotals) as [string, number][]).reduce(
+          (a, b) => (a[1] > b[1] ? a : b),
+          ['Unknown', 0]
+        )[0];
         const pendingRatio = ((pendingOrders / parsedOrders.length) * 100).toFixed(1);
 
         setStats([
@@ -273,7 +276,7 @@ const Dashboard: React.FC = () => {
 
         // Product distribution
         setProductDist(
-          Object.entries(productTotals).map(([name, value]) => ({ name, value: parseFloat(value.toFixed(1)) }))
+          Object.entries(productTotals).map(([name, value]) => ({ name, value: parseFloat((value as number).toFixed(1)) }))
         );
 
         // Customer distribution
