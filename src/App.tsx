@@ -17,6 +17,7 @@ import { Submissions } from './pages/Submissions';
 import { ToasterProvider } from './components/ui/Toaster';
 import { MeruLoader } from './components/ui/MeruLoader';
 const Dispatch = React.lazy(() => import('./pages/Dispatch'));
+const DispatchReceipt = React.lazy(() => import('./pages/DispatchReceipt'));
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
@@ -31,6 +32,7 @@ const pageTitles: Record<string, string> = {
   '/help': 'Help',
   '/settings': 'Settings',
   '/profile': 'Profile',
+  '/dispatch-receipt': 'Dispatch Receipt',
 };
 
 function usePageTitle() {
@@ -124,6 +126,14 @@ export function App() {
               }
               />
               <Route path="*" element={<NotFound />} />
+              <Route
+                path="/dispatch-receipt"
+                element={
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    <DispatchReceipt />
+                  </React.Suspense>
+                }
+              />
             </Routes>
           </main>
         </div>

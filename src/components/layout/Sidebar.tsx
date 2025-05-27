@@ -75,6 +75,10 @@ export function Sidebar({ size, setSize }: SidebarProps) {
         path: '/dispatch',
         label: 'Dispatch Reports',
         icon: <ClipboardIcon size={20} />
+      }, {
+        path: '/dispatch-receipt',
+        label: 'Dispatch Receipt',
+        icon: <ClipboardIcon size={20} />
       }]
     },
     // System Section
