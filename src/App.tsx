@@ -19,7 +19,7 @@ import Status from './pages/Status';
 import SalesTeam from './pages/SalesTeam';
 import Calendar from './pages/Calendar';
 import { ToasterProvider } from './components/ui/Toaster';
-import { MeruLoader } from './components/ui/MeruLoader';
+import  MeruLoader  from './components/ui/MeruLoader';
 import Offline from './pages/Offline';
 const Dispatch = React.lazy(() => import('./pages/Dispatch'));
 const DispatchReceipt = React.lazy(() => import('./pages/DispatchReceipt'));

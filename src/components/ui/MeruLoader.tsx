@@ -1,63 +1,93 @@
-import React from "react";
 
-const letters = ["M", "E", "R", "U"];
+import React from 'react';
+import { motion } from 'framer-motion';
+import { FaSpinner } from 'react-icons/fa';
+import styles from './MeruLoader.module.css'; // Import your CSS module for styles
 
-export const MeruLoader: React.FC = () => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-90">
-    <div className="flex space-x-3 text-5xl font-extrabold text-[#2C5B48]">
-      {letters.map((letter, i) => (
-        <span
-          key={letter}
-          className="inline-block animate-meru-advanced"
-          style={{
-            animationDelay: `${i * 0.18}s`,
-            animationDuration: "2s",
-            animationIterationCount: "infinite",
-          }}
+interface MeruLoaderProps {
+  isLoading?: boolean; // Toggle visibility
+  message?: string; // Custom loading message
+}
+
+const letters = ['M', 'E', 'R', 'U'];
+
+const letterVariants = {
+  initial: { y: 0, scale: 1, rotate: 0, opacity: 0.7 },
+  animate: (i: number) => ({
+    y: [-12, 0, -12],
+    scale: [1, 1.2, 1],
+    rotate: [0, 8, 0],
+    opacity: [0.7, 1, 0.7],
+    transition: {
+      delay: i * 0.15,
+      duration: 1.5,
+      ease: 'easeInOut',
+      repeat: Infinity,
+      repeatType: 'loop' as const,
+    },
+  }),
+};
+
+const ringVariants = {
+  animate: {
+    rotate: 360,
+    transition: {
+      duration: 4,
+      ease: 'linear',
+      repeat: Infinity,
+    },
+  },
+};
+
+const MeruLoader: React.FC<MeruLoaderProps> = ({ isLoading = true, message = 'Loading Refinery Operations...' }) => {
+  if (!isLoading) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-90"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading Mont Meru Refinery Calendar"
+    >
+      <div className="relative flex flex-col items-center">
+        {/* Rotating Ring (Oil Drum Effect) */}
+        <motion.div
+          className="absolute w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-t-gold-500 border-l-blue-800 border-b-blue-800 border-r-transparent"
+          variants={ringVariants}
+          animate="animate"
+        />
+        {/* Letters */}
+        <div className="relative flex space-x-1 sm:space-x-2">
+          {letters.map((letter, i) => (
+            <motion.span
+              key={letter}
+              className={`text-3xl sm:text-5xl font-extrabold text-blue-800 ${styles.letter}`}
+              variants={letterVariants}
+              initial="initial"
+              animate="animate"
+              custom={i}
+            >
+              {letter}
+            </motion.span>
+          ))}
+        </div>
+        {/* Loading Message */}
+        <motion.p
+          className="mt-4 text-sm sm:text-base font-medium text-blue-800"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
         >
-          {letter}
-        </span>
-      ))}
+          {message}
+        </motion.p>
+      </div>
+      {/* Reduced Motion Fallback */}
+      <div className={styles.reducedMotion}>
+        <FaSpinner className="text-4xl text-blue-800 animate-spin" />
+        <p className="mt-2 text-sm font-medium text-blue-800">{message}</p>
+      </div>
     </div>
-    <style>
-      {`
-        @keyframes meru-advanced {
-          0% {
-            transform: translateY(0) scale(1);
-            color: #2C5B48;
-            opacity: 0.7;
-            text-shadow: 0 2px 8px #2C5B4840;
-          }
-          10% {
-            transform: translateY(-18px) scale(1.18) rotate(-8deg);
-            color: #22c55e;
-            opacity: 1;
-            text-shadow: 0 6px 16px #22c55e44;
-          }
-          20% {
-            transform: translateY(0) scale(1.08) rotate(0deg);
-            color: #2C5B48;
-            opacity: 1;
-            text-shadow: 0 2px 8px #2C5B4840;
-          }
-          60% {
-            transform: translateY(0) scale(1);
-            color: #2C5B48;
-            opacity: 0.7;
-            text-shadow: 0 2px 8px #2C5B4840;
-          }
-          100% {
-            transform: translateY(0) scale(1);
-            color: #2C5B48;
-            opacity: 0.7;
-            text-shadow: 0 2px 8px #2C5B4840;
-          }
-        }
-        .animate-meru-advanced {
-          animation-name: meru-advanced;
-          animation-timing-function: ease-in-out;
-        }
-      `}
-    </style>
-  </div>
-);
+  );
+};
+
+export default MeruLoader;

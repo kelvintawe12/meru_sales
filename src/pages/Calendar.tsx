@@ -20,7 +20,6 @@ interface SalesEvent {
 const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
-const formatDateTime = (date: Date) => date.toISOString();
 const parseDateTime = (dateTime: string) => new Date(dateTime);
 const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -623,7 +622,7 @@ const Calendar: React.FC = () => {
                           type="date"
                           value={eventForm.endDate}
                           onChange={e => setEventForm({ ...eventForm, endDate: e.target.value })}
-                          className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                          className="w-full p-2 border rounded-lg text-sm"
                         />
                       </div>
                       <div>
@@ -632,7 +631,7 @@ const Calendar: React.FC = () => {
                           type="time"
                           value={eventForm.endTime}
                           onChange={e => setEventForm({ ...eventForm, endTime: e.target.value })}
-                          className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                          className="w-full p-2 border rounded-lg text-sm"
                         />
                       </div>
                     </div>

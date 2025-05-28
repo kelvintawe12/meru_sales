@@ -1,0 +1,26 @@
+
+.letter {
+  text-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+}
+
+.letter:nth-child(2) {
+  color: #D4A017; /* Gold for 'E' */
+}
+
+/* Hide animated elements for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .letter,
+  .letter + div {
+    display: none;
+  }
+  .reducedMotion {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Default: hide reduced motion fallback */
+.reducedMotion {
+  display: none;
+}
