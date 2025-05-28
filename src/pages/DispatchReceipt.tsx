@@ -61,12 +61,36 @@ const DispatchReceipt: React.FC = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof FormData | string, string>>>({});
   const [activeTab, setActiveTab] = useState<'Customer' | 'Order' | 'Products' | 'Authorization'>('Customer');
   const [showPreview, setShowPreview] = useState(false);
+  const [showPrintOrPdfPrompt, setShowPrintOrPdfPrompt] = useState(false);
   const { addNotification } = useNotifications();
 
   // Persist form data
   useEffect(() => {
     localStorage.setItem('dispatchReceipt', JSON.stringify(formData));
   }, [formData]);
+
+  // Automatically move to next tab when current tab's required fields are filled
+  useEffect(() => {
+    if (activeTab === 'Customer' && formData.customerDetails.trim() !== '') {
+      setActiveTab('Order');
+    } else if (
+      activeTab === 'Order' &&
+      formData.loadingOrderNo.trim() !== '' &&
+      formData.vehicleNumber.trim() !== '' &&
+      formData.driverName.trim() !== '' &&
+      formData.loadingOrderDate.trim() !== ''
+    ) {
+      setActiveTab('Products');
+    } else if (
+      activeTab === 'Products' &&
+      formData.products.length > 0 &&
+      formData.products.every(
+        (p) => p.product.trim() !== '' && p.quantity.trim() !== '' && p.pricePerUnit.trim() !== ''
+      )
+    ) {
+      setActiveTab('Authorization');
+    }
+  }, [formData, activeTab]);
 
   // Calculate form completion
   const calculateProgress = (): number => {
@@ -184,7 +208,7 @@ const DispatchReceipt: React.FC = () => {
     }
 
     // Products Table
-    doc.autoTable({
+    (doc as any).autoTable(doc, {
       startY: formData.additionalInfo ? 195 : 185,
       head: [['Product', 'SKU', 'Quantity', 'Price/Unit', 'Total Value']],
       body: formData.products.map((prod) => [
@@ -233,81 +257,35 @@ const DispatchReceipt: React.FC = () => {
     }
   };
 
+  // Handle print or PDF prompt
+  const handlePrintOrPdfPrompt = () => {
+    if (!validateForm()) {
+      addNotification('Please fix form errors before proceeding.', 'error');
+      return;
+    }
+    const userChoice = window.confirm('Click OK to print the receipt or Cancel to download PDF.');
+    if (userChoice) {
+      handlePrint();
+    } else {
+      handleDownloadPDF();
+    }
+  };
+
   // Handle PDF download
   const handleDownloadPDF = () => {
     if (!validateForm()) {
       addNotification('Please fix form errors before downloading.', 'error');
       return;
     }
-    const doc = new jsPDF();
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
-
-    // Watermark
-    const watermarkText = 'Meru Soyco';
-    doc.setFontSize(50);
-    doc.setTextColor(200, 200, 200, 0.3);
-    doc.text(watermarkText, 105, 150, { angle: 45, align: 'center' });
-    doc.setTextColor(0);
-    doc.setFontSize(12);
-
-    // Header
-    doc.addImage('https://mountmerugroup.com/uploads/site-setting/frontend/logo.svg', 'SVG', 20, 10, 30, 30);
-    doc.text('DISPATCH RECEIPT', 105, 15, { align: 'center' });
-    doc.text('Meru Soyco', 20, 45);
-    doc.text('Kayonza, Rwanda', 20, 55);
-    doc.text('Phone: +254 700 123 456 | Email: info@merusales.co.ke', 20, 65);
-    doc.text(`Receipt ID: ${formData.receiptId}`, 20, 75);
-    doc.text(`Invoice Number: ${formData.invoiceNumber || 'N/A'}`, 20, 85);
-    doc.text(`Issue Date: ${formData.issueDate || 'N/A'}`, 20, 95);
-    doc.text(`Due Date: ${formData.dueDate || 'N/A'}`, 20, 105);
-    doc.text(`Customer: ${formData.customerDetails}`, 20, 115);
-    doc.text(`Loading Order No: ${formData.loadingOrderNo}`, 20, 125);
-    doc.text(`Vehicle Number: ${formData.vehicleNumber}`, 20, 135);
-    doc.text(`Driver Name: ${formData.driverName}`, 20, 145);
-    doc.text(`Loading Order Date: ${formData.loadingOrderDate}`, 20, 155);
-    doc.text(`Purchase Order Ref: ${formData.purchaseOrderRef}`, 20, 165);
-    doc.text(`Purchase Order Date: ${formData.purchaseOrderDate}`, 20, 175);
-    if (formData.additionalInfo) {
-      doc.text(`Additional Info: ${formData.additionalInfo}`, 20, 185);
-    }
-
-    // Products Table
-    doc.autoTable({
-      startY: formData.additionalInfo ? 195 : 185,
-      head: [['Product', 'SKU', 'Quantity', 'Price/Unit', 'Total Value']],
-      body: formData.products.map((prod) => [
-        prod.product,
-        prod.sku,
-        prod.quantity,
-        prod.pricePerUnit,
-        prod.totalValue,
-      ]),
-      theme: 'grid',
-      headStyles: { fillColor: [44, 91, 72], textColor: [255, 255, 255] },
-      styles: { fontSize: 10 },
-      didDrawPage: () => {
-        doc.setFontSize(50);
-        doc.setTextColor(200, 200, 200, 0.3);
-        doc.text(watermarkText, 105, 150, { angle: 45, align: 'center' });
-        doc.setTextColor(0);
-        doc.setFontSize(12);
-      },
-    });
-
-    // Authorization
-    let finalY = (doc as any).lastAutoTable.finalY || 195;
-    doc.text(
-      'WE HEREBY AUTHORIZE YOU TO LOAD THE AFOREMENTIONED GOOD IN THE ABOVE STATED VEHICLE NUMBER VIDE LOADING ORDER NO AS MENTIONED ABOVE EVEN DATE. WE HEREBY FURTHER MANDATE YOU TO DEDUCT THE QUANTITY AS LOADED HEREIN ABOVE FROM THE QUANTITY IN OUR PURCHASE ORDER AND YOUR CORRESPONDING SALES ORDER FOR GOOD ORDER.',
-      20,
-      finalY + 10,
-      { maxWidth: 170 }
-    );
-    doc.text(`Authorized By: ${formData.authorizedBy}`, 20, finalY + 50);
-    doc.text(`Prepared By: ${formData.preparedBy}`, 80, finalY + 50);
-    doc.text(`Approved By: ${formData.approvedBy}`, 140, finalY + 50);
-
-    doc.save(`DispatchReceipt_${formData.receiptId}.pdf`);
+    const docBlob = generatePDF(true);
+    const url = URL.createObjectURL(docBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `DispatchReceipt_${formData.receiptId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     addNotification('PDF downloaded successfully!', 'success');
   };
 
@@ -474,7 +452,9 @@ const DispatchReceipt: React.FC = () => {
                   aria-label="Customer Details"
                   required
                 />
-                <InfoIcon size={16} className="absolute top-8 right-2 text-gray-400" title="Enter customer name and address" />
+                <span title="Enter customer name and address" className="absolute top-8 right-2">
+                  <InfoIcon size={16} className="text-gray-400" />
+                </span>
                 {errors.customerDetails && <p className="text-red-500 text-xs mt-1">{errors.customerDetails}</p>}
               </div>
             </div>
@@ -494,7 +474,9 @@ const DispatchReceipt: React.FC = () => {
                   className="w-full p-2 text-sm border border-gray-300 rounded bg-gray-100 print:border-0"
                   aria-label="Receipt ID"
                 />
-                <InfoIcon size={16} className="absolute top-8 right-2 text-gray-400" title="Auto-generated unique ID" />
+                <span title="Auto-generated unique ID" className="absolute top-8 right-2">
+                  <InfoIcon size={16} className="text-gray-400" />
+                </span>
                 {errors.receiptId && <p className="text-red-500 text-xs mt-1">{errors.receiptId}</p>}
               </div>
               <div className="relative">
@@ -508,7 +490,9 @@ const DispatchReceipt: React.FC = () => {
                   className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#2C5B48] print:border-0"
                   aria-label="Invoice Number"
                 />
-                <InfoIcon size={16} className="absolute top-8 right-2 text-gray-400" title="Optional invoice number" />
+                <span title="Optional invoice number" className="absolute top-8 right-2">
+                  <InfoIcon size={16} className="text-gray-400" />
+                </span>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Issue Date</label>
@@ -798,22 +782,22 @@ const DispatchReceipt: React.FC = () => {
             Preview
           </button>
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handlePrint}
-              className="flex items-center px-4 py-2 bg-[#2C5B48] text-white rounded-md hover:bg-[#224539] transition hover:scale-105"
-              aria-label="Print Receipt"
-            >
-              <PrinterIcon size={18} className="mr-2" />
-              Print
-            </button>
-            <button
-              onClick={handleDownloadPDF}
-              className="flex items-center px-4 py-2 bg-[#22c55e] text-white rounded-md hover:bg-[#16a34a] transition hover:scale-105"
-              aria-label="Download PDF"
-            >
-              <DownloadIcon size={18} className="mr-2" />
-              Download
-            </button>
+          <button
+            onClick={handlePrintOrPdfPrompt}
+            className="flex items-center px-4 py-2 bg-[#2C5B48] text-white rounded-md hover:bg-[#224539] transition hover:scale-105"
+            aria-label="Print or Download Receipt"
+          >
+            <PrinterIcon size={18} className="mr-2" />
+            Print / Download
+          </button>
+          {/* <button
+            onClick={handleDownloadPDF}
+            className="flex items-center px-4 py-2 bg-[#22c55e] text-white rounded-md hover:bg-[#16a34a] transition hover:scale-105"
+            aria-label="Download PDF"
+          >
+            <DownloadIcon size={18} className="mr-2" />
+            Download
+          </button> */}
             <button
               onClick={handleShare}
               className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition hover:scale-105"

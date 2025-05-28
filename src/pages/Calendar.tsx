@@ -469,9 +469,9 @@ const Calendar: React.FC = () => {
           <span className="font-semibold">{monthNames[currentMonth]} {currentYear}</span>
           <button onClick={handleNext}><FaChevronRight /></button>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold mb-1">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <div key={d}>{d}</div>)}
-        </div>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold mb-1">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, index) => <div key={`${d}-${index}`}>{d}</div>)}
+          </div>
         <div className="grid grid-cols-7 gap-1">{cells}</div>
       </div>
     );
