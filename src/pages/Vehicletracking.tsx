@@ -111,7 +111,11 @@ const VehicleTrackingForm: React.FC = () => {
 
   const filteredRecords = tripRecords.filter((record) => {
     const truck = trucks.find((t) => t.id === record.truckId);
-    return truck && truck.number.toLowerCase().includes(searchTerm.toLowerCase());
+    return (
+      truck &&
+      truck.number.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      record.date.toISOString().split('T')[0] === selectedDate.toISOString().split('T')[0]
+    );
   });
 
   const calculateWeeklyTrips = (truckId: string) => {
@@ -142,9 +146,9 @@ const VehicleTrackingForm: React.FC = () => {
           <div>
             <h2 className="text-2xl font-bold text-gray-800 flex items-center">
               <FaTruck className="mr-2 text-blue-600" />
-              Vehicle Tracking System
+              Vehicle Tracking Dashboard
             </h2>
-            <p className="text-gray-600 text-sm">Manage and track truck trips</p>
+            <p className="text-gray-600 text-sm">Monitor and manage truck trips</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -157,55 +161,159 @@ const VehicleTrackingForm: React.FC = () => {
                 className="border border-gray-300 rounded-md pl-10 pr-3 py-2 text-sm focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
                 maxDate={new Date()}
               />
-              <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <FaCalendarAlt
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                size={16}
+              />
             </div>
             <button
-              className="flex items-center gap-2 px-3 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200"
+              className="px-3 py-2 text-sm rounded bg-gray-100 hover:bg-gray-200 transition-all duration-200"
+              onClick={() => setSelectedDate(new Date())}
             >
-              <FaPrint size={16} />
-              <span>Print</span>
+              Today
             </button>
             <button
-              className="flex items-center gap-2 px-3 py-2 text-sm rounded bg-green-600 text-white hover:bg-green-700 transition-all duration-200"
+              className="px-3 py-2 text-sm rounded bg-gray-100 hover:bg-gray-200 transition-all duration-200"
+              onClick={() => {
+                const d = new Date();
+                d.setDate(d.getDate() - 1);
+                setSelectedDate(d);
+              }}
             >
-              <FaFileExport size={16} />
-              <span>Export</span>
+              1d back
+            </button>
+            <button
+              className="px-3 py-2 text-sm rounded bg-gray-100 hover:bg-gray-200 transition-all duration-200"
+              onClick={() => {
+                const d = new Date();
+                d.setDate(d.getDate() - 7);
+                setSelectedDate(d);
+              }}
+            >
+              7d back
             </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-6">
-          {['all', 'small', 'big'].map((tab) => (
-            <button
-              key={tab}
-              className={`px-4 py-2 text-sm font-medium transition-all duration-200 ${
-                activeTab === tab
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-              onClick={() => setActiveTab(tab as 'all' | 'small' | 'big')}
-            >
-              {tab === 'all' ? 'All Trucks' : tab === 'small' ? 'Small Trucks' : 'Big Trucks'}
-            </button>
-          ))}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="flex items-center">
+            <div className="p-3 rounded-full bg-blue-100 mr-4">
+              <FaTruck className="text-blue-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Total Trucks</p>
+              <h3 className="text-2xl font-bold text-gray-800">{trucks.length}</h3>
+              <p className="text-xs text-gray-600">
+                {trucks.filter((t) => t.type === 'small').length} small,{' '}
+                {trucks.filter((t) => t.type === 'big').length} big
+              </p>
+            </div>
+          </Card>
+          <Card className="flex items-center">
+            <div className="p-3 rounded-full bg-green-100 mr-4">
+              <FaFileExport className="text-green-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Weekly Trips</p>
+              <h3 className="text-2xl font-bold text-gray-800">{calculateTotalWeeklyTrips()}</h3>
+              <p className="text-xs text-gray-600">Last 7 days</p>
+            </div>
+          </Card>
+          <Card className="flex items-center">
+            <div className="p-3 rounded-full bg-purple-100 mr-4">
+              <FaPrint className="text-purple-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Records Today</p>
+              <h3 className="text-2xl font-bold text-gray-800">
+                {tripRecords.filter(
+                  (r) => r.date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0]
+                ).length}
+              </h3>
+              <p className="text-xs text-gray-600">For {new Date().toLocaleDateString('en-GB')}</p>
+            </div>
+          </Card>
+          <Card className="flex items-center">
+            <div className="p-3 rounded-full bg-amber-100 mr-4">
+              <FaSearch className="text-amber-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Active Search</p>
+              <h3 className="text-2xl font-bold text-gray-800">{filteredTrucks.length}</h3>
+              <p className="text-xs text-gray-600">Matching trucks</p>
+            </div>
+          </Card>
         </div>
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <input
-            type="text"
-            placeholder="Search by truck number..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-        </div>
-
-        {/* Truck List and Trip Records */}
+        {/* Tabs and Search */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Truck List */}
+          <div className="lg:col-span-2">
+            <Card title="Filters">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex border-b border-gray-200">
+                  {['all', 'small', 'big'].map((tab) => (
+                    <button
+                      key={tab}
+                      className={`px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                        activeTab === tab
+                          ? 'border-b-2 border-blue-600 text-blue-600'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                      onClick={() => setActiveTab(tab as 'all' | 'small' | 'big')}
+                    >
+                      {tab === 'all' ? 'All Trucks' : tab === 'small' ? 'Small Trucks' : 'Big Trucks'}
+                    </button>
+                  ))}
+                </div>
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search by truck number..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <FaSearch
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    size={16}
+                  />
+                </div>
+              </div>
+            </Card>
+          </div>
+          <div>
+            <Card title="Quick Actions">
+              <div className="space-y-4">
+                {[
+                  { to: '/print', title: 'Print Records', desc: 'Generate printable trip reports' },
+                  { to: '/export', title: 'Export Data', desc: 'Export trip data to CSV' },
+                  { to: '/manage', title: 'Manage Trucks', desc: 'Add or edit truck details' },
+                ].map((item) => (
+                  <a
+                    key={item.to}
+                    href={item.to}
+                    className="block p-4 rounded-lg border border-gray-200 bg-white hover:shadow-lg hover:-translate-y-1 transition-all"
+                  >
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center mr-4">
+                        <span className="text-lg font-bold">{item.title[0]}</span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-800">{item.title}</h4>
+                        <p className="text-sm text-gray-600">{item.desc}</p>
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Available Trucks */}
           <Card title="Available Trucks" className="lg:col-span-1">
             <div className="max-h-96 overflow-y-auto space-y-2">
               <AnimatePresence>
@@ -232,7 +340,7 @@ const VehicleTrackingForm: React.FC = () => {
                     </motion.div>
                   ))
                 ) : (
-                  <div className="text-center text-gray-500 py-4">No trucks found</div>
+                  <div className="text-center text-gray-600 py-4">No trucks found</div>
                 )}
               </AnimatePresence>
             </div>
@@ -249,7 +357,6 @@ const VehicleTrackingForm: React.FC = () => {
                     : 'Select a truck from the list'}
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <div className="relative">
@@ -268,7 +375,6 @@ const VehicleTrackingForm: React.FC = () => {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Driver Name *</label>
                 <input
@@ -279,7 +385,6 @@ const VehicleTrackingForm: React.FC = () => {
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
                 <input
@@ -289,7 +394,6 @@ const VehicleTrackingForm: React.FC = () => {
                   onChange={(e) => setNewRecord({ ...newRecord, destination: e.target.value })}
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">No. of Trips</label>
                 <input
@@ -300,7 +404,6 @@ const VehicleTrackingForm: React.FC = () => {
                   onChange={(e) => setNewRecord({ ...newRecord, tripCount: parseInt(e.target.value) || 1 })}
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea
@@ -310,17 +413,17 @@ const VehicleTrackingForm: React.FC = () => {
                   onChange={(e) => setNewRecord({ ...newRecord, notes: e.target.value })}
                 />
               </div>
-
               <button
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all duration-200"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all duration-200 flex items-center justify-center gap-2"
                 onClick={handleAddRecord}
               >
+                <FaTruck size={16} />
                 Add Trip Record
               </button>
             </div>
           </Card>
 
-          {/* Trip Records */}
+          {/* Recent Trip Records */}
           <Card title="Recent Trip Records" className="lg:col-span-1">
             <div className="max-h-96 overflow-y-auto space-y-2">
               <AnimatePresence>
@@ -334,7 +437,7 @@ const VehicleTrackingForm: React.FC = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
-                        className="bg-white p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
+                        className="p-3 rounded-lg border border-gray-200 bg-blue-50 text-blue-900 hover:bg-blue-100 transition-all duration-200"
                       >
                         <div className="flex justify-between items-start">
                           <div>
@@ -361,7 +464,7 @@ const VehicleTrackingForm: React.FC = () => {
                     );
                   })
                 ) : (
-                  <div className="text-center text-gray-500 py-4">No trip records found</div>
+                  <div className="text-center text-gray-600 py-4">No trip records for this date.</div>
                 )}
               </AnimatePresence>
             </div>
@@ -370,6 +473,57 @@ const VehicleTrackingForm: React.FC = () => {
             </div>
           </Card>
         </div>
+
+        {/* Recent Trips Table */}
+        <Card title="Trip Records Table">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Truck</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Driver</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Trips</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Destination</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-gray-600 py-4">
+                      No trip records for this date.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRecords.map((record) => {
+                    const truck = trucks.find((t) => t.id === record.truckId);
+                    return (
+                      <tr key={record.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-800">
+                          {record.date.toLocaleDateString('en-GB')}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-800">{truck?.number}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">{record.driverName}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">{record.tripCount}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">{record.destination}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">
+                          <button
+                            onClick={() => handleDeleteRecord(record.id)}
+                            className="text-red-600 hover:text-red-800 transition-all duration-200"
+                            title="Delete record"
+                          >
+                            <FaTrash size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </motion.div>
     </div>
   );

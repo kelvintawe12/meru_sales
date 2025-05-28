@@ -3,7 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboardIcon, FlaskConicalIcon, BeakerIcon, CalendarIcon,
   BarChart3Icon, ClipboardIcon, HelpCircleIcon, SettingsIcon,
-  ChevronLeftIcon, ChevronRightIcon, ListIcon
+  ChevronLeftIcon, ChevronRightIcon, ListIcon, TruckIcon,
+  UserCircle2Icon
 } from 'lucide-react';
 
 export type SidebarSize = 'closed' | 'compact' | 'full';
@@ -56,21 +57,28 @@ export function Sidebar({ size, setSize }: SidebarProps) {
     {
       section: 'Data Entry',
       items: [{
-        path: '/vehicle-tracking',
-        label: 'Vehicle Tracking',
-        icon: <FlaskConicalIcon size={20} />
+      path: '/vehicle-tracking',
+      label: 'Vehicle Tracking',
+      icon: <TruckIcon size={20} />
+      }, {      path: '/production-form',
+      label: 'Production Form',
+      icon: <ClipboardIcon size={20} />
       }, {
-        path: '/production-form',
-        label: 'Production Form',
-        icon: <ClipboardIcon size={20} />
+      path: '/dispatch-analysis',
+      label: 'Dispatch Analysis',
+      icon: <BarChart3Icon size={20} />
       }, {
-        path: '/fractionation-form',
-        label: 'Dispatches',
-        icon: <BeakerIcon size={20} />
+      path: '/pending-orders',
+      label: 'Pending Orders',
+      icon: <ListIcon size={20} />
       }, {
-        path: '/pending-orders',
-        label: 'Pending Orders',
-        icon: <ListIcon size={20} />
+      path: '/sales-team',
+      label: 'Sales Team',
+      icon: <UserCircle2Icon size={20} />
+      }, {
+      path: '/calendar',
+      label: 'Calendar',
+      icon: <CalendarIcon size={20} />
       }]
     },
     // Dispatch Receipts Section

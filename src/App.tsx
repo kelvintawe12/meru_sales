@@ -5,7 +5,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import  Dashboard  from './pages/Dashboard';
 import  VehicleTrackingForm from './pages/Vehicletracking';
-import  FractionationForm  from './pages/FractionationForm';
+import  DispatchAnalysis  from './pages/DispatchAnalysis';
 import  MTDSummary  from './pages/MTDSummary';
 import Help from './pages/Help';
 import { Settings } from './pages/Settings';
@@ -15,6 +15,9 @@ import  ProductionForm from './pages/ProductionForm';
 import  Reports  from './pages/Reports';
 import  Submissions  from './pages/Submissions';
 import Status from './pages/Status';
+
+import SalesTeam from './pages/SalesTeam';
+import Calendar from './pages/Calendar';
 import { ToasterProvider } from './components/ui/Toaster';
 import { MeruLoader } from './components/ui/MeruLoader';
 import Offline from './pages/Offline';
@@ -25,7 +28,7 @@ const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
   '/dashboard': 'Dashboard',
   '/vehicle-tracking': 'vehicle Tracking',
-  '/fractionation-form': 'deports ',
+  '/dispatchAnalysis': 'Dispatch Analysis',
   '/pending-orders': 'Orders',
   '/production-form': 'Production Form',
   '/mtd-summary': 'MTD Summary',
@@ -153,7 +156,7 @@ export function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/vehicle-tracking" element={<VehicleTrackingForm />} />
-              <Route path="/fractionation-form" element={<FractionationForm />} />
+              <Route path="/dispatch-analysis" element={<DispatchAnalysis />} />
               <Route path="/pending-orders" element={<PendingOrders />} />
               <Route path="/production-form" element={<ProductionForm />} />
               <Route path="/mtd-summary" element={<MTDSummary />} />
@@ -171,6 +174,8 @@ export function App() {
                 </React.Suspense>
               }
               />
+              <Route path="/sales-team" element={<SalesTeam />} />
+              <Route path="/calendar" element={<Calendar />} />
               <Route path="*" element={<NotFound />} />
               <Route
                 path="/dispatch-receipt"

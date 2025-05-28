@@ -75,7 +75,7 @@ interface DailyData {
   '250ML': number;
 }
 
-const FractionationForm: React.FC = () => {
+const DispatchAnalysis: React.FC = () => {
   const [data, setData] = useState<CleanedRow[]>([]);
   const [filteredData, setFilteredData] = useState<CleanedRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -259,7 +259,7 @@ const FractionationForm: React.FC = () => {
   };
 
   const handleWhatsAppShare = () => {
-    const message = 'Meru sales Report for May 2025: https://merusales.co.ke/fractionation-dorm';
+    const message = 'Meru sales Report for May 2025: https://merusales.co.ke/';
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -277,9 +277,11 @@ const FractionationForm: React.FC = () => {
       {/* Header */}
       <header className="max-w-5xl mx-auto mb-8 bg-blue-600 text-white rounded-lg shadow-xl p-6">
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-gray-500">
-            Logo
-          </div>
+          <img
+            src="https://mountmerugroup.com/uploads/site-setting/frontend/logo.svg"
+            alt="Meru Sales Logo"
+            className="w-16 h-16 rounded-full bg-white object-contain shadow"
+          />
           <div className="flex-1 text-center sm:text-left">
             <h1 className="text-2xl font-bold">Meru Oil Dispatch Analysis</h1>
             <p className="text-sm mt-2">Meru Sales Ltd. | May-June 2025</p>
@@ -323,7 +325,7 @@ const FractionationForm: React.FC = () => {
 
         {/* Visualizations */}
         <section className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Fractionation Insights</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">ispatch Insights</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Bar Chart: Product Sizes */}
             <div className="bg-gray-50 p-4 rounded-lg shadow">
@@ -451,7 +453,7 @@ const FractionationForm: React.FC = () => {
   );
 };
 
-export default FractionationForm;
+export default DispatchAnalysis;
 
 // Loads the CSV file as a string (for demo, uses a static import or fetches from public folder)
 function loadFileData(): string {
