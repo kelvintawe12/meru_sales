@@ -60,10 +60,10 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 shadow-sm">
+    <header className="bg-blue-50 border-b border-gray-200 shadow-sm">
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center">
-          <button onClick={toggleSidebar} className="md:hidden mr-4 hover:bg-gray-100 p-2 rounded-lg">
+          <button onClick={toggleSidebar} className="md:hidden mr-4 hover:bg-blue-100 p-2 rounded-lg">
             <MenuIcon size={20} />
           </button>
           <h1 className="text-xl font-semibold text-gray-800">
@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-[#2C5B48] text-white"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-[#1E3A8A] text-white"
                 aria-haspopup="true"
                 aria-expanded={profileOpen}
               >

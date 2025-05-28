@@ -231,15 +231,15 @@ const FractionationForm: React.FC = () => {
       headStyles: { fillColor: [0, 102, 204], textColor: [255, 255, 255] },
     });
 
-    doc.save('FractionationDorm.pdf');
+    doc.save('merusales.pdf');
   };
 
   // Share handlers
   const handleShare = async () => {
     const shareData = {
-      title: 'Fractionation Form - Oil Dispatch Analysis',
+      title: 'Oil Dispatch Analysis',
       text: 'Oil dispatch analysis for May 2025 from Meru Sales Ltd.',
-      url: 'https://merusales.co.ke/fractionation-form',
+      url: 'https://merusales.co.ke/',
     };
     if (navigator.share) {
       try {
@@ -253,18 +253,18 @@ const FractionationForm: React.FC = () => {
   };
 
   const handleEmailShare = () => {
-    const subject = 'Fractionation Dorm - Oil Dispatch Analysis';
+    const subject = ' Oil Dispatch Analysis';
     const body = 'Attached is the oil dispatch analysis for May 2025.\n\nMeru Sales Ltd.';
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const handleWhatsAppShare = () => {
-    const message = 'Fractionation Dorm Report for May 2025: https://merusales.co.ke/fractionation-dorm';
+    const message = 'Meru sales Report for May 2025: https://merusales.co.ke/fractionation-dorm';
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText('https://merusales.co.ke/fractionation-dorm')
+    navigator.clipboard.writeText('https://merusales.co.ke/')
       .then(() => alert('Link copied!'))
       .catch(() => alert('Failed to copy link.'));
   };
@@ -281,8 +281,8 @@ const FractionationForm: React.FC = () => {
             Logo
           </div>
           <div className="flex-1 text-center sm:text-left">
-            <h1 className="text-2xl font-bold">Fractionation Dorm - Oil Dispatch Analysis</h1>
-            <p className="text-sm mt-2">Meru Sales Ltd. | May 2025</p>
+            <h1 className="text-2xl font-bold">Meru Oil Dispatch Analysis</h1>
+            <p className="text-sm mt-2">Meru Sales Ltd. | May-June 2025</p>
           </div>
         </div>
       </header>

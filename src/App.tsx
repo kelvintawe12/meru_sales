@@ -11,7 +11,7 @@ import Help from './pages/Help';
 import { Settings } from './pages/Settings';
 import { Profile } from './pages/Profile';
 import  PendingOrders  from './pages/PendingOrders';
-import { Stocks } from './pages/Stocks';
+import  ProductionForm from './pages/ProductionForm';
 import  Reports  from './pages/Reports';
 import  Submissions  from './pages/Submissions';
 import Status from './pages/Status';
@@ -27,8 +27,10 @@ const pageTitles: Record<string, string> = {
   '/vehicle-tracking': 'vehicle Tracking',
   '/fractionation-form': 'deports ',
   '/pending-orders': 'Orders',
-  '/stocks': 'Stocks',
+  '/production-form': 'Production Form',
   '/mtd-summary': 'MTD Summary',
+  '/status': 'Status',
+  '/dispatch': 'Dispatch',
   '/reports': 'Reports',
   '/submissions': 'Submissions',
   '/help': 'Help',
@@ -153,7 +155,7 @@ export function App() {
               <Route path="/vehicle-tracking" element={<VehicleTrackingForm />} />
               <Route path="/fractionation-form" element={<FractionationForm />} />
               <Route path="/pending-orders" element={<PendingOrders />} />
-              <Route path="/stocks" element={<Stocks />} />
+              <Route path="/production-form" element={<ProductionForm />} />
               <Route path="/mtd-summary" element={<MTDSummary />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/submissions" element={<Submissions />} />

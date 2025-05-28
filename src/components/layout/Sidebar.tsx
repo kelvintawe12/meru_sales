@@ -11,7 +11,7 @@ export type SidebarSize = 'closed' | 'compact' | 'full';
 export interface SidebarProps {
   size: SidebarSize;
   setSize: React.Dispatch<React.SetStateAction<SidebarSize>>;
-  onSignOut: () => void; // <-- Add this line
+  onSignOut: () => void;
 }
 
 export function Sidebar({ size, setSize }: SidebarProps) {
@@ -57,34 +57,33 @@ export function Sidebar({ size, setSize }: SidebarProps) {
       section: 'Data Entry',
       items: [{
         path: '/vehicle-tracking',
-        label: 'vehicle Tracking',
+        label: 'Vehicle Tracking',
         icon: <FlaskConicalIcon size={20} />
       }, {
-        path: '/stocks',
-        label: 'Stocks Form',
+        path: '/production-form',
+        label: 'Production Form',
         icon: <ClipboardIcon size={20} />
       }, {
         path: '/fractionation-form',
-        label: 'Dispatches ',
+        label: 'Dispatches',
         icon: <BeakerIcon size={20} />
       }, {
         path: '/pending-orders',
         label: 'Pending Orders',
         icon: <ListIcon size={20} />
-        
       }]
     },
     // Dispatch Receipts Section
     {
       section: 'Dispatch Receipts',
       items: [{
-      path: '/dispatch-receipt',
-      label: 'New receipt',
-      icon: <ClipboardIcon size={20} />
+        path: '/dispatch-receipt',
+        label: 'New Receipt',
+        icon: <ClipboardIcon size={20} />
       }, {
-      path: '/dispatch',
-      label: 'Daily dispatch Reports',
-      icon: <ClipboardIcon size={20} />
+        path: '/dispatch',
+        label: 'Daily Dispatch Reports',
+        icon: <ClipboardIcon size={20} />
       }]
     },
     // System Section
@@ -113,17 +112,17 @@ export function Sidebar({ size, setSize }: SidebarProps) {
 
   return (
     <aside
-      className={`bg-[#2C5B48] text-white transition-all duration-300 ease-in-out fixed top-0 left-0 h-screen z-50 ${widthClass} ${isClosed ? 'overflow-hidden' : ''}`}
+      className={`bg-[#1E3A8A] text-white transition-all duration-300 ease-in-out fixed top-0 left-0 h-screen z-50 ${widthClass} ${isClosed ? 'overflow-hidden' : ''}`}
       style={{ minWidth: isClosed ? 0 : undefined }}
     >
       <div className={`p-4 flex items-center justify-between ${isClosed ? 'hidden md:flex' : ''}`}>
         <div className="flex items-center">
-          <img src="https://placehold.co/40x40/2C5B48/FFFFFF/png?text=M" alt="Meru Logo" className="h-10 w-10 rounded-md" />
+          <img src="https://mountmerugroup.com/uploads/site-setting/frontend/logo.svg" alt="Meru Logo" className="h-15 w-20 rounded-md" />
           {size === 'full' && <h1 className="ml-3 font-bold text-lg">MERU REFINERY</h1>}
         </div>
         <button
           onClick={handleToggle}
-          className="text-white hover:bg-[#224539] rounded-full p-1 absolute -right-3 top-6 bg-[#2C5B48] shadow-md border border-[#224539]"
+          className="text-white hover:bg-[#3B82F6] rounded-full p-1 absolute -right-3 top-6 bg-[#1E3A8A] shadow-md border border-[#3B82F6]"
         >
           {size === 'full' ? <ChevronLeftIcon size={16} /> : <ChevronRightIcon size={16} />}
         </button>
@@ -147,7 +146,7 @@ export function Sidebar({ size, setSize }: SidebarProps) {
                           `flex items-center w-full p-3 rounded-lg transition-colors ${
                             isActive
                               ? 'bg-white text-[#2C5B48] font-medium'
-                              : 'text-white hover:bg-[#224539]'
+                              : 'text-white hover:bg-[#3B82F6]'
                           }`
                         }
                       >
@@ -164,7 +163,7 @@ export function Sidebar({ size, setSize }: SidebarProps) {
       )}
       {!isClosed && (
         <div className="absolute bottom-4 left-0 right-0 px-4">
-          <div className={`p-3 bg-[#224539] rounded-lg ${size === 'full' ? 'flex items-center' : 'flex justify-center'}`}>
+          <div className={`p-3 bg-[#3B82F6] rounded-lg ${size === 'full' ? 'flex items-center' : 'flex justify-center'}`}>
             <HelpCircleIcon size={20} />
             {size === 'full' && <span className="ml-3 text-sm">Need help?</span>}
           </div>
