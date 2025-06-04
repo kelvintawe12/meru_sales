@@ -208,7 +208,7 @@ const DispatchReceipt: React.FC = () => {
     }
 
     // Products Table
-    doc.autoTable({
+    (window as any).autoTable(doc, {
       startY: formData.additionalInfo ? 195 : 185,
       head: [['Product', 'SKU', 'Quantity', 'Price/Unit', 'Total Value']],
       body: formData.products.map((prod) => [
