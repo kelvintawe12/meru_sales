@@ -72,8 +72,6 @@ const defaultFormData: FormData = {
 // Mock utilities
 const calculatePercent = (qty: number, target: number): number => (target ? Number(((qty / target) * 100).toFixed(0)) : 0);
 
-const BASE_URL = 'http://localhost:4000/api';
-
 const ProductionTracker: React.FC = () => {
   const [formData, setFormData] = useState<FormData>(() => {
     const saved = localStorage.getItem('productionTracker');
@@ -157,37 +155,16 @@ const ProductionTracker: React.FC = () => {
   const handleConfirmSubmit = async () => {
     setShowConfirm(false);
     setIsLoading(true);
-    try {
-      const response = await fetch(BASE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: formData.date,
-          product: formData.product,
-          sizes: formData.sizes,
-          hourlyData: formData.hourlyData,
-          summary,
-          type: 'production_tracker',
-        }),
-      });
-      const result = await response.json();
-      if (result.status === 200) {
-        addNotification('Production data tracked successfully!', 'success');
-        setFormData({
-          ...defaultFormData,
-          date: new Date().toISOString().split('T')[0],
-        });
-        localStorage.removeItem('productionTracker');
-        setShowPreview(false);
-      } else {
-        addNotification(result.message || 'Error tracking production data', 'error');
-      }
-    } catch (error) {
-      console.error('Error tracking production data:', error);
-      addNotification('Error tracking production data', 'error');
-    } finally {
+    addNotification('Backend not implemented. Using sample data only.', 'info');
+    setTimeout(() => {
       setIsLoading(false);
-    }
+      setShowPreview(false);
+      setFormData({
+        ...defaultFormData,
+        date: new Date().toISOString().split('T')[0],
+      });
+      localStorage.removeItem('productionTracker');
+    }, 1000);
   };
 
   return (
